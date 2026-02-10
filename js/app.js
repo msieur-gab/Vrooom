@@ -54,6 +54,11 @@ async function init() {
   profile = await db.getProfile();
   selectedCar = await db.getSelectedCar();
 
+  // Restore persisted car image and sounds
+  carSideViewUrl = await db.getSetting('carSideViewUrl') || null;
+  const savedSounds = await db.getSetting('carSounds');
+  if (savedSounds) Object.assign(carSounds, savedSounds);
+
   setupAvatarGrid();
   setupCarGrid();
   setupEventListeners();
@@ -229,9 +234,12 @@ async function loadCarFromConfig(configUrl) {
     const viewer = $('onboard-car');
     if (viewer) {
       await viewer.loadCar(config);
-      // Capture side view for map marker
       carSideViewUrl = await viewer.toSideView();
     }
+
+    // Persist car image and sounds for next launch
+    await db.setSetting('carSideViewUrl', carSideViewUrl);
+    await db.setSetting('carSounds', carSounds);
   } catch (err) {
     showToast('Failed to load car config');
   }
