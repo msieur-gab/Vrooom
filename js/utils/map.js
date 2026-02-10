@@ -29,7 +29,7 @@ export function initMap(elementId) {
 
 // ── User position ─────────────────────────────
 
-export function placeUser(map, lat, lon, carImageUrl) {
+export function placeUser(map, lat, lon, carImageUrl, onTap) {
   if (map._meMarker) {
     map.removeLayer(map._meMarker);
     map.removeLayer(map._mePulse);
@@ -58,9 +58,11 @@ export function placeUser(map, lat, lon, carImageUrl) {
 
   map._meMarker = L.marker([lat, lon], {
     icon,
-    interactive: false,
+    interactive: !!onTap,
     zIndexOffset: 1000
   }).addTo(map);
+
+  if (onTap) map._meMarker.on('click', onTap);
 }
 
 // ── Playground markers ────────────────────────

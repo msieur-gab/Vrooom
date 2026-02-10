@@ -33,10 +33,20 @@ let selectedPlayground = null;
 let selectedAvatar = null;
 let pendingCarConfig = null;
 let carSideViewUrl = null;
+let carSounds = { horn: null, engine: null };
 
 // ── DOM refs ──────────────────────────────────
 
 const $ = id => document.getElementById(id);
+
+// ── Sound helper ─────────────────────────────
+
+function playSound(url) {
+  if (!url) return;
+  const a = new Audio(url);
+  a.volume = 0.5;
+  a.play().catch(() => {});
+}
 
 // ── Init ──────────────────────────────────────
 
@@ -202,6 +212,12 @@ async function loadCarFromConfig(configUrl) {
     const config = await res.json();
     pendingCarConfig = config;
 
+    // Extract sounds for map interactions
+    const parts = config.parts || [];
+    const findSound = name => parts.find(p => p.name.toLowerCase() === name)?.soundUrl;
+    carSounds.horn = findSound('roof') || config.defaultClickSound;
+    carSounds.engine = findSound('body') || config.defaultClickSound;
+
     // Save car to DB
     const car = await db.addCar(config.carName || 'My Car', configUrl);
     selectedCar = car;
@@ -314,7 +330,7 @@ async function relocate() {
   try {
     userCoords = await locate();
     map.setView([userCoords.lat, userCoords.lon], 15);
-    placeUser(map, userCoords.lat, userCoords.lon, carSideViewUrl);
+    placeUser(map, userCoords.lat, userCoords.lon, carSideViewUrl, () => playSound(carSounds.horn));
 
     barCount.textContent = 'Searching playgrounds…';
     await searchPlaygrounds();
@@ -460,6 +476,7 @@ async function doRoute() {
   const btn = $('btn-route');
   btn.disabled = true;
   btn.textContent = 'Loading…';
+  playSound(carSounds.engine);
 
   try {
     const result = await showRoute(
