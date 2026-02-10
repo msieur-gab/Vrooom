@@ -1,0 +1,10 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2a2520" stroke-width="1.5">
+  <path d="M60 10 L100 30 L100 65 Q100 95 60 110 Q20 95 20 65 L20 30 Z" stroke-width="2"/>
+  <path d="M60 18 L94 35 L94 63 Q94 89 60 103 Q26 89 26 63 L26 35 Z" stroke-dasharray="4 3"/>
+  <!-- Compass -->
+  <circle cx="60" cy="55" r="15"/>
+  <polygon points="60,42 63,55 60,58 57,55" stroke-width="1"/>
+  <polygon points="60,68 57,55 60,52 63,55" stroke-width="1" stroke-dasharray="2 1"/>
+  <text x="60" y="55" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="20" font-weight="700" stroke="none" fill="#2a2520">5</text>
+  <text x="60" y="90" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="7" font-weight="500" stroke="none" fill="#2a2520">Explorer</text>
+</svg>

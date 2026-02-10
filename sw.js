@@ -1,0 +1,87 @@
+/**
+ * Vrooom Service Worker — offline-first caching.
+ */
+
+const CACHE_NAME = 'vrooom-v1';
+
+const PRECACHE = [
+  './',
+  './index.html',
+  './css/vars.css',
+  './css/base.css',
+  './css/components.css',
+  './css/map.css',
+  './js/app.js',
+  './js/components/car-viewer.js',
+  './js/services/database.js',
+  './js/services/nfc.js',
+  './js/services/playground.js',
+  './js/services/playground-cache.js',
+  './js/services/checkin.js',
+  './js/services/badge.js',
+  './js/utils/geo.js',
+  './js/utils/distance.js',
+  './js/utils/map.js',
+  './data/conf-vroom.json',
+  './data/conf-dodge.json',
+  './manifest.json'
+];
+
+// Install — precache shell
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// Activate — clean old caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+// Fetch — cache-first for app shell, network-first for API calls
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+
+  // Network-first for Overpass API
+  if (url.hostname.includes('overpass')) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Network-first for CDN resources (tiles, libs)
+  if (url.hostname !== location.hostname) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache =>
+        fetch(event.request)
+          .then(res => {
+            if (res.ok) cache.put(event.request, res.clone());
+            return res;
+          })
+          .catch(() => cache.match(event.request))
+      )
+    );
+    return;
+  }
+
+  // Cache-first for app resources
+  event.respondWith(
+    caches.match(event.request)
+      .then(cached => cached || fetch(event.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return res;
+      }))
+  );
+});

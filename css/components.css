@@ -1,0 +1,481 @@
+/* ── Welcome / Onboarding ──────────────────── */
+
+.welcome-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.welcome-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.welcome-title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: var(--muted);
+  text-align: center;
+  max-width: 280px;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* ── Car viewer container ──────────────────── */
+
+.car-viewer-wrap {
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 4/3;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+
+.car-viewer-wrap car-viewer {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Car onboard screen ────────────────────── */
+
+.onboard-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  background: var(--bg);
+  z-index: 9;
+}
+
+.onboard-car-name {
+  font-size: 22px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Profile screen ────────────────────────── */
+
+.profile-screen {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+  z-index: 8;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 360px;
+}
+
+.profile-card h2 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.avatar-option {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: rgba(0,0,0,0.03);
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+}
+
+.avatar-option:active { transform: scale(0.9); }
+
+.avatar-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ── Bottom navigation ─────────────────────── */
+
+.bottom-nav {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px;
+  background: var(--glass);
+  border: 1px solid var(--surface-border);
+  border-radius: 34px;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+}
+
+.nav-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 24px;
+  transition: color 0.25s;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.nav-tab.active { color: var(--accent); }
+
+.nav-tab svg { flex-shrink: 0; }
+
+.nav-dot {
+  position: absolute;
+  width: 0;
+  height: 44px;
+  background: var(--accent-soft);
+  border-radius: 24px;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
+              width 0.3s cubic-bezier(0.4,0,0.2,1),
+              left 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* ── Locate FAB ────────────────────────────── */
+
+.locate-fab {
+  position: fixed;
+  bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 80px));
+  right: 16px;
+  z-index: 999;
+}
+
+.locate-fab .btn-icon-only {
+  width: 56px;
+  height: 56px;
+}
+
+/* ── Detail panel (slide-up) ───────────────── */
+
+.detail-panel {
+  position: fixed;
+  bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px));
+  left: 16px;
+  right: 16px;
+  z-index: 1000;
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+  transform: translateY(calc(100% + 100px));
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.detail-panel.visible { transform: translateY(0); }
+
+.detail-type {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.detail-name {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.detail-meta {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.detail-meta:empty { display: none; }
+
+.detail-dist {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.detail-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(0,0,0,0.05);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-walk {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.detail-walk:empty { display: none; }
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ── Badge grid ────────────────────────────── */
+
+.badge-screen {
+  padding: max(60px, env(safe-area-inset-top, 16px)) 16px max(88px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+
+.badge-screen h2 {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.badge-stats {
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.badge-item {
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  gap: 6px;
+  transition: transform 0.15s;
+}
+
+.badge-item:active { transform: scale(0.96); }
+
+.badge-item.locked {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.badge-item svg {
+  width: 48px;
+  height: 48px;
+}
+
+.badge-item-name {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--fg);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ── Settings screen ───────────────────────── */
+
+.settings-screen {
+  padding: max(60px, env(safe-area-inset-top, 16px)) 16px max(88px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+
+.settings-section {
+  max-width: 400px;
+  margin: 0 auto 16px;
+}
+
+.settings-section h3 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+/* ── Toast ─────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: max(88px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+  left: 50%;
+  transform: translateX(-50%) translateY(calc(100% + 20px));
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
+              opacity 0.35s ease, visibility 0.35s;
+}
+
+.toast.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── NFC modal ─────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: white;
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+}
+
+.modal-content h3 { margin-bottom: 12px; }
+.modal-content p { color: var(--muted); font-size: 15px; line-height: 1.5; margin-bottom: 20px; }
+
+/* ── Car select grid ───────────────────────── */
+
+.car-select-screen {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+  z-index: 7;
+}
+
+.car-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.car-option {
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 2px solid transparent;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+}
+
+.car-option:active { transform: scale(0.96); }
+.car-option.selected { border-color: var(--accent); }
+.car-option-name { font-weight: 500; margin-top: 8px; }

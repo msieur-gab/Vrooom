@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f45436">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Vrooom — Playground Discovery</title>
+
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="./css/vars.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/map.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Welcome
+       ═══════════════════════════════════════════ -->
+  <section id="welcome" class="screen welcome-screen">
+    <div class="welcome-logo">🚗</div>
+    <h1 class="welcome-title">Vrooom!</h1>
+    <p class="welcome-subtitle">Discover playgrounds near you with your wooden car</p>
+
+    <div class="car-viewer-wrap" id="welcome-car-wrap">
+      <car-viewer id="welcome-car" background-color="#f45436" auto-rotate></car-viewer>
+    </div>
+
+    <div class="welcome-actions">
+      <button class="btn btn-primary btn-block" id="btn-scan-nfc">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18.5a5 5 0 0 1 0-13"/><path d="M18 18.5a5 5 0 0 0 0-13"/><path d="M9 15.5a2 2 0 0 1 0-7"/><path d="M15 15.5a2 2 0 0 0 0-7"/><circle cx="12" cy="12" r="1"/></svg>
+        Scan Your Car
+      </button>
+      <button class="btn btn-secondary btn-block" id="btn-pick-car">
+        Choose Car Manually
+      </button>
+      <button class="btn btn-ghost btn-block" id="btn-skip-car">
+        Skip for now
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Car Select (manual)
+       ═══════════════════════════════════════════ -->
+  <section id="car-select" class="screen car-select-screen" hidden>
+    <h2 class="mb-16">Pick Your Car</h2>
+    <div class="car-grid" id="car-grid"></div>
+    <div class="mt-16" style="width:100%;max-width:400px;">
+      <button class="btn btn-primary btn-block" id="btn-confirm-car" disabled>Next</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Car Onboard
+       ═══════════════════════════════════════════ -->
+  <section id="car-onboard" class="screen onboard-screen" hidden>
+    <h2 class="onboard-car-name" id="onboard-car-name">Your Car</h2>
+    <div class="car-viewer-wrap">
+      <car-viewer id="onboard-car" background-color="#f45436" auto-rotate></car-viewer>
+    </div>
+    <button class="btn btn-primary btn-block" id="btn-create-profile" style="max-width:320px;">
+      Create Your Profile
+    </button>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Profile Creation
+       ═══════════════════════════════════════════ -->
+  <section id="profile-create" class="screen profile-screen" hidden>
+    <div class="card profile-card">
+      <h2>Who's Driving?</h2>
+
+      <div class="form-group">
+        <label class="form-label" for="profile-name">Your Name</label>
+        <input type="text" id="profile-name" class="form-input" placeholder="Enter your name" autocomplete="name" maxlength="30">
+      </div>
+
+      <label class="form-label">Pick an Avatar</label>
+      <div class="avatar-grid" id="avatar-grid"></div>
+
+      <button class="btn btn-primary btn-block" id="btn-save-profile" disabled>
+        Let's Go!
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Map (main app)
+       ═══════════════════════════════════════════ -->
+  <section id="map-screen" class="screen" hidden>
+    <div id="map"></div>
+
+    <!-- Top bar -->
+    <div class="map-bar" id="map-bar">
+      <div class="bar-dot" id="bar-dot"></div>
+      <span class="bar-count" id="bar-count">Locating…</span>
+      <button class="bar-radius-chip" id="btn-radius">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        <span id="bar-radius-label">1.5 km</span>
+      </button>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detail-panel">
+      <button class="detail-close" id="detail-close">&times;</button>
+      <div class="detail-type">Playground</div>
+      <div class="detail-name" id="detail-name"></div>
+      <div class="detail-meta" id="detail-meta"></div>
+      <div class="detail-dist" id="detail-dist"></div>
+      <span class="detail-walk" id="detail-walk"></span>
+      <div class="detail-actions">
+        <button class="btn btn-primary" id="btn-checkin">Check In!</button>
+        <button class="btn btn-secondary" id="btn-route">Walk there</button>
+      </div>
+    </div>
+
+    <!-- Locate FAB -->
+    <div class="locate-fab">
+      <button class="btn-icon-only" id="btn-locate">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Radius popover -->
+    <div class="radius-popover" id="radius-popover">
+      <div class="radius-header">
+        <span class="radius-label">Search radius</span>
+        <span class="radius-value" id="radius-value">1.5 km</span>
+      </div>
+      <input type="range" class="radius-slider" id="radius-slider" min="500" max="5000" step="500" value="1500">
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Badges
+       ═══════════════════════════════════════════ -->
+  <section id="badge-screen" class="screen badge-screen" hidden>
+    <h2>Badge Collection</h2>
+    <p class="badge-stats" id="badge-stats">0 badges earned</p>
+    <div class="badge-grid" id="badge-grid"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN: Settings / Profile
+       ═══════════════════════════════════════════ -->
+  <section id="settings-screen" class="screen settings-screen" hidden>
+    <div class="settings-section">
+      <h2 class="mb-16">Profile</h2>
+      <div class="card" id="profile-display">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <span style="font-size:32px;" id="settings-avatar"></span>
+          <span style="font-size:18px;font-weight:500;" id="settings-name"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Car</h3>
+      <div class="card">
+        <p style="font-size:15px;margin-bottom:12px;" id="settings-car-name">No car selected</p>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="btn-settings-scan">Scan NFC</button>
+          <button class="btn btn-ghost" id="btn-settings-pick">Switch Car</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Data</h3>
+      <div class="card">
+        <button class="btn btn-ghost btn-block" id="btn-export">Export Data</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       Bottom Navigation
+       ═══════════════════════════════════════════ -->
+  <nav class="bottom-nav" id="bottom-nav" hidden>
+    <div class="nav-dot" id="nav-dot"></div>
+    <button class="nav-tab active" data-screen="map-screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Map
+    </button>
+    <button class="nav-tab" data-screen="badge-screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+      Badges
+    </button>
+    <button class="nav-tab" data-screen="settings-screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Profile
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       Toast
+       ═══════════════════════════════════════════ -->
+  <div class="toast" id="toast">
+    <span id="toast-icon"></span>
+    <span id="toast-text"></span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       NFC Modal
+       ═══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="nfc-modal">
+    <div class="modal-content">
+      <h3 id="nfc-modal-title">Scanning…</h3>
+      <p id="nfc-modal-text">Hold your phone near the NFC tag on your wooden car.</p>
+      <button class="btn btn-primary" id="btn-nfc-close">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       CDN Dependencies
+       ═══════════════════════════════════════════ -->
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- App modules -->
+  <script src="./js/components/car-viewer.js"></script>
+  <script type="module" src="./js/app.js"></script>
+
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+
+</body>
+</html>

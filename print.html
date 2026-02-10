@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vrooom — Print Badges</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f3ef;
+      color: #2a2520;
+      padding: 24px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #9a948b;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .badge-print-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .badge-print-cell {
+      aspect-ratio: 1;
+      border: 2px dashed #ccc;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+
+    .badge-print-cell svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .badge-print-cell.empty {
+      border-color: #e5e5e5;
+    }
+
+    .no-print { display: block; }
+
+    .print-btn {
+      display: block;
+      margin: 24px auto;
+      padding: 14px 36px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      background: #f45436;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    @media print {
+      body { background: white; padding: 10mm; }
+      .no-print { display: none !important; }
+      .badge-print-grid { gap: 8mm; }
+      .badge-print-cell { border-width: 1px; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Vrooom Badge Sheet</h1>
+  <p class="subtitle">Cut along the dotted lines, color in, and glue into your travel passport!</p>
+
+  <div class="badge-print-grid" id="print-grid">
+    <div class="badge-print-cell empty"></div>
+  </div>
+
+  <button class="print-btn no-print" onclick="window.print()">Print Badge Sheet</button>
+
+  <script type="module">
+    import { getBadgeCollection, playgroundBadgeSVG, milestoneBadgeSVG } from './js/services/badge.js';
+    import * as db from './js/services/database.js';
+
+    async function loadBadges() {
+      const profile = await db.getProfile();
+      if (!profile) {
+        document.getElementById('print-grid').innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#9a948b;">No profile found. Create one in the app first.</p>';
+        return;
+      }
+
+      const collection = await getBadgeCollection(profile.id);
+      const grid = document.getElementById('print-grid');
+      let html = '';
+
+      // Earned milestones
+      for (const m of collection.milestones.filter(m => m.earned)) {
+        html += `<div class="badge-print-cell">${milestoneBadgeSVG(m.title, m.threshold)}</div>`;
+      }
+
+      // Playground badges
+      for (const p of collection.playgrounds) {
+        html += `<div class="badge-print-cell">${playgroundBadgeSVG(p.title)}</div>`;
+      }
+
+      // Fill empty slots to complete the grid (multiples of 3)
+      const total = collection.milestones.filter(m => m.earned).length + collection.playgrounds.length;
+      const remainder = total % 3;
+      if (remainder > 0) {
+        for (let i = 0; i < 3 - remainder; i++) {
+          html += '<div class="badge-print-cell empty"></div>';
+        }
+      }
+
+      if (total === 0) {
+        html = '<p style="grid-column:1/-1;text-align:center;color:#9a948b;padding:40px;">No badges earned yet. Go explore some playgrounds!</p>';
+      }
+
+      grid.innerHTML = html;
+    }
+
+    loadBadges();
+  </script>
+
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+</body>
+</html>

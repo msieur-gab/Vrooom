@@ -1,0 +1,9 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2a2520" stroke-width="1.5">
+  <path d="M60 10 L100 30 L100 65 Q100 95 60 110 Q20 95 20 65 L20 30 Z" stroke-width="2"/>
+  <path d="M60 18 L94 35 L94 63 Q94 89 60 103 Q26 89 26 63 L26 35 Z" stroke-dasharray="4 3"/>
+  <!-- Mountain -->
+  <path d="M35 75 L50 45 L55 55 L65 40 L85 75 Z"/>
+  <text x="60" y="62" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="20" font-weight="700" stroke="none" fill="#2a2520">10</text>
+  <polygon points="60,22 63,28 70,28 65,32 67,38 60,34 53,38 55,32 50,28 57,28" stroke-width="1"/>
+  <text x="60" y="90" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="7" font-weight="500" stroke="none" fill="#2a2520">Adventurer</text>
+</svg>

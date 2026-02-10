@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap');
+
+:root {
+  --bg: #f5f3ef;
+  --fg: #2a2520;
+  --muted: #9a948b;
+  --accent: #f45436;
+  --accent-soft: rgba(244,84,54,0.1);
+  --accent-glow: rgba(244,84,54,0.18);
+  --danger: #d9534f;
+  --warning: #b87a2a;
+  --surface: rgba(255,255,255,0.92);
+  --surface-border: rgba(0,0,0,0.06);
+  --surface-shadow: 0 2px 20px rgba(0,0,0,0.08);
+  --glass: rgba(255,255,255,0.88);
+  --glass-blur: blur(20px);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-round: 50%;
+  --font: 'DM Sans', -apple-system, system-ui, sans-serif;
+  --car-bg: #f45436;
+}

@@ -1,0 +1,11 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2a2520" stroke-width="1.5">
+  <circle cx="60" cy="60" r="56" stroke-width="2"/>
+  <circle cx="60" cy="60" r="50" stroke-dasharray="4 3"/>
+  <!-- Car silhouette -->
+  <path d="M30 65 L35 55 L50 50 L75 50 L85 55 L90 65 L90 72 L30 72 Z"/>
+  <circle cx="42" cy="72" r="6"/>
+  <circle cx="78" cy="72" r="6"/>
+  <!-- Star -->
+  <polygon points="60,22 63,28 70,28 65,32 67,38 60,34 53,38 55,32 50,28 57,28" stroke-width="1"/>
+  <text x="60" y="100" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="7" font-weight="500" stroke="none" fill="#2a2520">First Adventure</text>
+</svg>

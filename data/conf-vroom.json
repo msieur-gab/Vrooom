@@ -1,0 +1,41 @@
+{
+    "carName": "Classic Vroom",
+    "vibrationAmplitude": 0.4,
+    "vibrationFrequency": 12,
+    "vibrationAxis": "y", 
+    "vibratableParts": ["Body", "Roof", "Front Light", "Rear Light"],
+    "parts": [
+      {
+        "name": "Body",
+        "stlUrl": "./models/Vroom-body.stl",
+        "defaultColor": "#b79e01",
+        "soundUrl": "./sounds/engine_rev.mp3"
+      },
+      {
+        "name": "Roof",
+        "stlUrl": "./models/Vroom-roof.stl",
+        "defaultColor": "#A2b2b4",
+        "soundUrl": "./sounds/horn_beep.mp3"
+      },
+    
+      {
+        "name": "Front Light",
+        "stlUrl": "./models/Vroom-flight.stl",
+        "defaultColor": "#C0f500",
+        "soundUrl": "./sounds/horn_beep.mp3"
+      },
+      {
+        "name": "Rear Light",
+        "stlUrl": "./models/Vroom-rlight.stl",
+        "defaultColor": "#F20707",
+        "soundUrl": "./sounds/rear-light.mp3"
+      },
+      {
+        "name": "Wheels",
+        "stlUrl": "./models/Vroom-wheels.stl",
+        "defaultColor": "#333333",
+        "soundUrl": "./sounds/tire_squeal.mp3"
+      }
+    ],
+    "defaultClickSound": "./sounds/default_click.mp3"
+  }

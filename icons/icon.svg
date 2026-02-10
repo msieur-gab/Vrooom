@@ -1,0 +1,13 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="96" fill="#f45436"/>
+  <!-- Car silhouette -->
+  <g transform="translate(256,256) scale(2.5)" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-60 10 L-50 -15 L-25 -30 L30 -30 L50 -15 L60 10 L60 25 L-60 25 Z"/>
+    <circle cx="-35" cy="25" r="12" fill="white"/>
+    <circle cx="35" cy="25" r="12" fill="white"/>
+    <circle cx="-35" cy="25" r="5" fill="#f45436"/>
+    <circle cx="35" cy="25" r="5" fill="#f45436"/>
+    <line x1="-45" y1="-5" x2="-30" y2="-5"/>
+    <line x1="30" y1="-5" x2="45" y2="-5"/>
+  </g>
+</svg>

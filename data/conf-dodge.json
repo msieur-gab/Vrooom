@@ -1,0 +1,45 @@
+{
+    "carName": "Classic Grree",
+    "vibrationAmplitude": 0.6,
+    "vibrationFrequency": 10,
+    "vibrationAxis": "x", 
+    "vibratableParts": ["Body", "Roof", "Front Light", "Rear Light"],
+    "parts": [
+      {
+        "name": "Body",
+        "stlUrl": "./models/Vroom-body.stl",
+        "defaultColor": "#2e2e2e",
+        "soundUrl": "./sounds/motor-v8-dodge-charger-243223.mp3"
+      },
+      {
+        "name": "Roof",
+        "stlUrl": "./models/Vroom-roof.stl",
+        "defaultColor": "#A2b2b4",
+        "soundUrl": "./sounds/car-horn-2-189856.mp3"
+      },
+    
+      {
+        "name": "Front Light",
+        "stlUrl": "./models/Vroom-flight.stl",
+        "defaultColor": "#C0f500",
+        "transparent": true,
+        "opacity": 0.8 ,
+        "soundUrl": "./sounds/car-horn-2-189856.mp3"
+      },
+      {
+        "name": "Rear Light",
+        "stlUrl": "./models/Vroom-rlight.stl",
+        "defaultColor": "#F20707",
+        "transparent": true,
+        "opacity": 0.8 ,
+        "soundUrl": "./sounds/rear-light.mp3"
+      },
+      {
+        "name": "Wheels",
+        "stlUrl": "./models/Vroom-wheels.stl",
+        "defaultColor": "#333333",
+        "soundUrl": "./sounds/nissan-maxima-burnout-04-25-2009-6344.mp3"
+      }
+    ],
+    "defaultClickSound": "./sounds/default_click.mp3"
+  }
