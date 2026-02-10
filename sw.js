@@ -47,16 +47,10 @@ self.addEventListener('activate', event => {
 
 // Fetch — cache-first for app shell, network-first for API calls
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  // Only handle GET requests — POST (Overpass), etc. go straight to network
+  if (event.request.method !== 'GET') return;
 
-  // Network-first for Overpass API
-  if (url.hostname.includes('overpass')) {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
+  const url = new URL(event.request.url);
 
   // Network-first for CDN resources (tiles, libs)
   if (url.hostname !== location.hostname) {
