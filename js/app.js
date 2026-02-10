@@ -32,6 +32,7 @@ let playgrounds = [];
 let selectedPlayground = null;
 let selectedAvatar = null;
 let pendingCarConfig = null;
+let carSideViewUrl = null;
 
 // ── DOM refs ──────────────────────────────────
 
@@ -210,7 +211,11 @@ async function loadCarFromConfig(configUrl) {
     showScreen('car-onboard');
 
     const viewer = $('onboard-car');
-    if (viewer) viewer.loadCar(config);
+    if (viewer) {
+      await viewer.loadCar(config);
+      // Capture side view for map marker
+      carSideViewUrl = await viewer.toSideView();
+    }
   } catch (err) {
     showToast('Failed to load car config');
   }
@@ -309,7 +314,7 @@ async function relocate() {
   try {
     userCoords = await locate();
     map.setView([userCoords.lat, userCoords.lon], 15);
-    placeUser(map, userCoords.lat, userCoords.lon);
+    placeUser(map, userCoords.lat, userCoords.lon, carSideViewUrl);
 
     barCount.textContent = 'Searching playgrounds…';
     await searchPlaygrounds();

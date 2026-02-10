@@ -1,5 +1,6 @@
 {
     "carName": "Classic Vroom",
+    "glbUrl": "./data/Vroom.glb",
     "vibrationAmplitude": 0.4,
     "vibrationFrequency": 12,
     "vibrationAxis": "y", 

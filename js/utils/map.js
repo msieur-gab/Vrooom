@@ -29,7 +29,7 @@ export function initMap(elementId) {
 
 // ── User position ─────────────────────────────
 
-export function placeUser(map, lat, lon) {
+export function placeUser(map, lat, lon, carImageUrl) {
   if (map._meMarker) {
     map.removeLayer(map._meMarker);
     map.removeLayer(map._mePulse);
@@ -40,15 +40,24 @@ export function placeUser(map, lat, lon) {
     interactive: false
   }).addTo(map);
 
+  const icon = carImageUrl
+    ? L.icon({
+        iconUrl: carImageUrl,
+        iconSize: [96, 64],
+        iconAnchor: [48, 32],
+        className: 'me-marker'
+      })
+    : L.divIcon({
+        className: 'me-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        html: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="8" r="6" fill="var(--accent)" stroke="white" stroke-width="3"/>
+        </svg>`
+      });
+
   map._meMarker = L.marker([lat, lon], {
-    icon: L.divIcon({
-      className: 'me-marker',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      html: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="8" cy="8" r="6" fill="var(--accent)" stroke="white" stroke-width="3"/>
-      </svg>`
-    }),
+    icon,
     interactive: false,
     zIndexOffset: 1000
   }).addTo(map);

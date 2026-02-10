@@ -1,18 +1,20 @@
 /**
  * <car-viewer> — Standalone 3D car viewer Web Component.
  *
- * Portable: works in any page with just Three.js globals (THREE.Scene, etc.).
- * Drop in a <script> tag + Three.js CDN and you're good.
+ * Powered by Google's <model-viewer>. Loads GLB files with named
+ * materials mapped to sounds via car config JSON.
+ *
+ * Requires: <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer/dist/model-viewer.min.js"></script>
  *
  * Attributes:
- *   background-color  — hex color for scene background (default: #f45436)
- *   auto-rotate       — presence enables auto-rotation
- *   interactive       — presence enables click/touch interaction (default: true if absent? no — default ON, set interactive="false" to disable)
+ *   background-color  — hex color for background (default: #f45436)
+ *   auto-rotate       — enable auto-rotation
+ *   interactive       — set "false" to disable click/tap (default: on)
  *
  * Public API:
- *   loadCar(config)   — load a car config JSON object
- *   destroy()         — full cleanup
- *   resetView()       — reset camera to fit loaded car
+ *   loadCar(config)   — load a car config object (must include glbUrl)
+ *   destroy()         — cleanup
+ *   resetView()       — reset camera to default framing
  */
 
 class CarViewer extends HTMLElement {
@@ -20,54 +22,29 @@ class CarViewer extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
 
-    this.instanceId = 'cv-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-
-    // Three.js scene objects
-    this.scene = null;
-    this.camera = null;
-    this.renderer = null;
-    this.controls = null;
-    this.loadedObjects = new Map();
-    this.group = null; // created after THREE is available
-    this.groundPlane = null;
-
-    // Audio
-    this.audioListener = null;
-    this.audioBuffers = new Map();
-    this.defaultClickSoundBuffer = null;
-    this.activeAudio = null;
-
-    // Interaction
-    this.raycaster = null;
-    this.mouse = null;
+    // Sound mapping: materialName → soundUrl
+    this._soundMap = new Map();
+    this._defaultClickSound = null;
+    this._activeSound = null;
 
     // Vibration
-    this.vibrationActive = false;
-    this.vibrationEndTime = 0;
-    this.vibrationAmplitude = 0.4;
-    this.vibrationFrequency = 12;
-    this.vibrationAxis = 'x';
-    this.vibratableParts = [];
-    this.originalPositions = new Map();
-    this.originalEmissive = new Map();
+    this._vibrationActive = false;
+    this._vibrationEndTime = 0;
+    this._vibrationAmplitude = 0.4;
+    this._vibrationFrequency = 12;
+    this._vibrationRaf = null;
 
-    // State
-    this.animationId = null;
-    this.isInitialized = false;
-    this.isDestroyed = false;
-    this.loadAbortController = null;
-
-    // Event handler refs for cleanup
-    this._onResize = null;
+    this._isDestroyed = false;
     this._onClick = null;
 
     this._initDOM();
   }
 
-  // ── DOM scaffold ────────────────────────────────────────
+  // ── DOM ─────────────────────────────────────────────────
 
   _initDOM() {
     const bg = this.getAttribute('background-color') || '#f45436';
+    const autoRotate = this.hasAttribute('auto-rotate') && this.getAttribute('auto-rotate') !== 'false';
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -81,622 +58,304 @@ class CarViewer extends HTMLElement {
           overflow: hidden;
           min-height: 250px;
         }
-        canvas {
-          display: block;
+        model-viewer {
           width: 100%;
           height: 100%;
+          --poster-color: transparent;
         }
         .msg {
-          position: absolute;
-          top: 50%;
-          left: 50%;
+          position: absolute; top: 50%; left: 50%;
           transform: translate(-50%, -50%);
-          color: white;
-          font-family: 'DM Sans', system-ui, sans-serif;
-          font-size: 0.9rem;
-          font-weight: 500;
-          text-align: center;
-          pointer-events: none;
-          z-index: 10;
-          max-width: 90%;
+          color: white; font-family: 'DM Sans', system-ui, sans-serif;
+          font-size: 0.9rem; font-weight: 500; text-align: center;
+          pointer-events: none; z-index: 10; max-width: 90%;
         }
         .msg.error {
-          color: #fee2e2;
-          background: rgba(239,68,68,0.15);
-          padding: 0.75rem 1rem;
-          border-radius: 0.5rem;
+          color: #fee2e2; background: rgba(239,68,68,0.15);
+          padding: 0.75rem 1rem; border-radius: 0.5rem;
           border: 1px solid rgba(239,68,68,0.25);
         }
         .msg[hidden] { display: none; }
       </style>
-      <canvas></canvas>
-      <div class="msg" id="loading">Loading 3D car…</div>
+      <model-viewer
+        camera-controls
+        disable-tap
+        disable-pan
+        ${autoRotate ? 'auto-rotate' : ''}
+        auto-rotate-delay="2000"
+        rotation-per-second="30deg"
+        camera-orbit="41deg 65deg auto"
+        min-camera-orbit="auto 30deg auto"
+        max-camera-orbit="auto 85deg auto"
+        field-of-view="45deg"
+        min-field-of-view="25deg"
+        max-field-of-view="60deg"
+        shadow-intensity="1.75"
+        shadow-softness="0.65"
+        environment-image="legacy"
+        exposure="0.6"
+        interpolation-decay="100"
+        style="background-color: ${bg};">
+      </model-viewer>
+      <div class="msg" id="loading" hidden>Loading 3D car…</div>
       <div class="msg error" id="error" hidden></div>
     `;
 
-    this._canvas = this.shadowRoot.querySelector('canvas');
+    this._viewer = this.shadowRoot.querySelector('model-viewer');
     this._loadingEl = this.shadowRoot.getElementById('loading');
     this._errorEl = this.shadowRoot.getElementById('error');
+
   }
 
   // ── Lifecycle ───────────────────────────────────────────
 
   connectedCallback() {
-    if (this.isDestroyed) return;
-
-    if (!this.isInitialized) {
-      // Use rAF instead of setTimeout hack — guarantees layout is ready
-      requestAnimationFrame(() => {
-        if (this.isDestroyed || this.isInitialized) return;
-        this._setup().then(() => {
-          if (!this.isDestroyed) this._startAnimation();
-        }).catch(err => {
-          console.error(`[CarViewer ${this.instanceId}] setup failed:`, err);
-        });
-      });
-    } else {
-      this._startAnimation();
-      this._handleResize();
-    }
+    if (this._isDestroyed) return;
+    this._setupEvents();
   }
 
   disconnectedCallback() {
-    this._stopAnimation();
+    this._removeEvents();
   }
 
-  static get observedAttributes() {
-    return ['background-color', 'auto-rotate', 'interactive'];
-  }
+  static get observedAttributes() { return ['background-color', 'auto-rotate', 'interactive']; }
 
-  attributeChangedCallback(name, oldVal, newVal) {
-    if (name === 'auto-rotate' && this.controls) {
-      this.controls.autoRotate = newVal !== null && newVal !== 'false';
+  attributeChangedCallback(name, _, val) {
+    if (!this._viewer) return;
+    if (name === 'auto-rotate') {
+      if (val !== null && val !== 'false') this._viewer.setAttribute('auto-rotate', '');
+      else this._viewer.removeAttribute('auto-rotate');
     }
-    if (name === 'background-color' && this.scene) {
-      this.scene.background = new THREE.Color(newVal || '#f45436');
-    }
-    if (name === 'interactive') {
-      // toggling interactive mode — handled in click handler
+    if (name === 'background-color') {
+      this._viewer.style.backgroundColor = val || '#f45436';
+      this.style.background = val || '#f45436';
     }
   }
 
   get isInteractive() {
-    const attr = this.getAttribute('interactive');
-    return attr === null || attr !== 'false'; // default true
+    const v = this.getAttribute('interactive');
+    return v === null || v !== 'false';
   }
 
-  // ── Three.js setup ──────────────────────────────────────
-
-  async _setup() {
-    if (this.isDestroyed) return;
-
-    if (typeof THREE === 'undefined') {
-      this._showError('Three.js not loaded');
-      return;
-    }
-
-    // WebGL check
-    try {
-      const c = document.createElement('canvas');
-      if (!(c.getContext('webgl') || c.getContext('experimental-webgl'))) throw 0;
-    } catch {
-      this._showError('WebGL not supported');
-      return;
-    }
-
-    const bg = this.getAttribute('background-color') || '#f45436';
-
-    this.group = new THREE.Group();
-    this.raycaster = new THREE.Raycaster();
-    this.mouse = new THREE.Vector2();
-
-    // Scene
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(bg);
-    this.scene.add(this.group);
-
-    // Camera
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    this.camera.position.set(-60, 30, 90);
-
-    // Renderer
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this._canvas,
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance'
-    });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    // Context loss handling
-    this._canvas.addEventListener('webglcontextlost', e => {
-      e.preventDefault();
-      this._stopAnimation();
-    });
-    this._canvas.addEventListener('webglcontextrestored', () => {
-      this._startAnimation();
-    });
-
-    this._handleResize();
-    this._setupLighting();
-    this._setupGround();
-    this._setupControls();
-    this._setupAudio();
-    this._setupEvents();
-
-    // ResizeObserver
-    this._resizeObs = new ResizeObserver(() => {
-      if (!this.isDestroyed) this._handleResize();
-    });
-    this._resizeObs.observe(this);
-
-    this.isInitialized = true;
-    this._hideLoading();
-  }
-
-  _setupLighting() {
-    this.scene.add(new THREE.AmbientLight(0x404040, 2));
-
-    const dir1 = new THREE.DirectionalLight(0xe2e2e2, 1);
-    dir1.position.set(50, 200, 100);
-    dir1.castShadow = true;
-    dir1.shadow.mapSize.set(2048, 2048);
-    dir1.shadow.camera.near = 0.5;
-    dir1.shadow.camera.far = 500;
-    dir1.shadow.camera.left = -80;
-    dir1.shadow.camera.right = 80;
-    dir1.shadow.camera.top = 80;
-    dir1.shadow.camera.bottom = -80;
-    dir1.shadow.bias = -0.0005;
-    dir1.shadow.normalBias = 0.02;
-    dir1.shadow.radius = 8;
-    this.scene.add(dir1);
-
-    const dir2 = new THREE.DirectionalLight(0xe2e2e2, 0.8);
-    dir2.position.set(-50, -100, -50).normalize();
-    this.scene.add(dir2);
-  }
-
-  _setupGround() {
-    const geo = new THREE.CircleGeometry(90, 64);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 });
-    this.groundPlane = new THREE.Mesh(geo, mat);
-    this.groundPlane.rotation.x = -Math.PI / 2;
-    this.groundPlane.position.y = -50;
-    this.groundPlane.receiveShadow = true;
-    this.scene.add(this.groundPlane);
-  }
-
-  _setupControls() {
-    this.controls = new THREE.OrbitControls(this.camera, this._canvas);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
-    this.controls.screenSpacePanning = false;
-    this.controls.minDistance = 1;
-    this.controls.maxDistance = 500;
-    this.controls.autoRotate = this.hasAttribute('auto-rotate') && this.getAttribute('auto-rotate') !== 'false';
-    this.controls.autoRotateSpeed = 4.0;
-    this.controls.target.set(0, 0, 0);
-  }
-
-  _setupAudio() {
-    this.audioListener = new THREE.AudioListener();
-    this.camera.add(this.audioListener);
-  }
+  // ── Events ──────────────────────────────────────────────
 
   _setupEvents() {
+    if (this._onClick) return;
     this._onClick = (e) => {
-      if (!this.isInteractive || this.isDestroyed || !this.isInitialized) return;
-      this._handleInteraction(e);
+      if (!this.isInteractive || this._isDestroyed) return;
+      this._handleClick(e);
     };
-    this._canvas.addEventListener('click', this._onClick);
-    this._canvas.addEventListener('touchstart', this._onClick);
+    this._viewer.addEventListener('click', this._onClick);
   }
 
-  // ── Animation loop ──────────────────────────────────────
-
-  _startAnimation() {
-    if (this.isDestroyed || this.animationId) return;
-
-    const loop = () => {
-      if (this.isDestroyed) return;
-      this.animationId = requestAnimationFrame(loop);
-      if (this.controls) this.controls.update();
-      this._updateVibration();
-      if (this.renderer && this.scene && this.camera) {
-        try { this.renderer.render(this.scene, this.camera); }
-        catch { this._stopAnimation(); }
-      }
-    };
-    loop();
-  }
-
-  _stopAnimation() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
+  _removeEvents() {
+    if (this._onClick) {
+      this._viewer.removeEventListener('click', this._onClick);
+      this._onClick = null;
     }
   }
 
   // ── Car loading ─────────────────────────────────────────
 
   async loadCar(config) {
-    if (this.isDestroyed) return;
+    if (this._isDestroyed) return;
 
-    // Abort any in-flight load
-    if (this.loadAbortController) {
-      this.loadAbortController.abort();
-    }
-    this.loadAbortController = new AbortController();
-    const signal = this.loadAbortController.signal;
+    this._stopSound();
+    this._showLoading('Loading car…');
 
-    try {
-      if (!this.isInitialized) {
-        await this._setup();
-      }
+    // Build sound map from config parts
+    this._soundMap.clear();
+    this._defaultClickSound = config.defaultClickSound || null;
+    this._vibrationAmplitude = config.vibrationAmplitude || 0.4;
+    this._vibrationFrequency = config.vibrationFrequency || 12;
 
-      this._clearAllParts();
-      this._showLoading('Loading car…');
-
-      // Vibration config
-      this.vibrationAmplitude = config.vibrationAmplitude || 0.4;
-      this.vibrationFrequency = config.vibrationFrequency || 12;
-      this.vibrationAxis = (config.vibrationAxis || 'x').toLowerCase();
-      this.vibratableParts = (config.vibratableParts || []).map(p => p.toLowerCase());
-
-      // Default click sound
-      if (config.defaultClickSound) {
-        try {
-          this.defaultClickSoundBuffer = await this._loadAudioBuffer(config.defaultClickSound);
-        } catch { /* non-critical */ }
-      }
-
-      if (signal.aborted) return;
-
-      // Load parts with Promise.allSettled — partial load on STL failure
-      const results = await Promise.allSettled(
-        config.parts.map(part => this._loadPart(part, signal))
-      );
-
-      if (signal.aborted) return;
-
-      const loaded = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected');
-
-      if (failed.length > 0) {
-        console.warn(`[CarViewer] ${failed.length} part(s) failed to load`);
-        failed.forEach(f => console.warn('  -', f.reason?.message || f.reason));
-      }
-
-      if (loaded === 0) {
-        this._showError('Failed to load car parts');
-        return;
-      }
-
-      this._updateCamera();
-      this._hideLoading();
-
-      if (!this.animationId && !this.isDestroyed) {
-        this._startAnimation();
-      }
-
-      this.dispatchEvent(new CustomEvent('car-loaded', { detail: { config, loaded, failed: failed.length } }));
-    } catch (err) {
-      if (!signal.aborted) {
-        this._showError(`Failed to load car: ${err.message}`);
-      }
-    }
-  }
-
-  async _loadPart(partConfig, signal) {
-    if (this.isDestroyed || signal?.aborted) return;
-
-    const geometry = await this._loadSTL(partConfig.stlUrl);
-    if (signal?.aborted) throw new Error('aborted');
-
-    const matProps = { roughness: 0.8, metalness: 0.1 };
-    const hasColors = geometry.hasColors && geometry.attributes.color?.count > 0;
-
-    if (hasColors) {
-      matProps.vertexColors = true;
-      matProps.roughness = 0.7;
-    } else {
-      matProps.color = new THREE.Color(partConfig.defaultColor || '#007bff');
-      if (partConfig.transparent !== undefined) matProps.transparent = partConfig.transparent;
-      if (partConfig.opacity !== undefined) matProps.opacity = partConfig.opacity;
-    }
-
-    const material = new THREE.MeshStandardMaterial(matProps);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    // Part-specific sound
-    let soundBuffer = null;
-    if (partConfig.soundUrl) {
-      try { soundBuffer = await this._loadAudioBuffer(partConfig.soundUrl); }
-      catch { /* non-critical */ }
-    }
-
-    const partId = `${this.instanceId}-${partConfig.name}-${Date.now().toString(36)}`;
-    this.loadedObjects.set(partId, {
-      mesh,
-      originalFileName: partConfig.name,
-      hasEmbeddedColor: hasColors,
-      soundBuffer,
-      id: partId
-    });
-    this.group.add(mesh);
-  }
-
-  _loadSTL(url) {
-    return new Promise((resolve, reject) => {
-      const loader = new THREE.STLLoader();
-      loader.load(
-        url,
-        geo => { geo.computeBoundingBox(); resolve(geo); },
-        undefined,
-        err => reject(new Error(`STL load failed: ${url}`))
-      );
-    });
-  }
-
-  _loadAudioBuffer(url) {
-    if (this.audioBuffers.has(url)) return Promise.resolve(this.audioBuffers.get(url));
-    return new Promise((resolve, reject) => {
-      new THREE.AudioLoader().load(
-        url,
-        buffer => { this.audioBuffers.set(url, buffer); resolve(buffer); },
-        undefined,
-        reject
-      );
-    });
-  }
-
-  // ── Interaction ─────────────────────────────────────────
-
-  _handleInteraction(event) {
-    if (!this.isInitialized || this.isDestroyed) return;
-    event.preventDefault();
-
-    const touch = event.touches?.[0];
-    const cx = touch ? touch.clientX : event.clientX;
-    const cy = touch ? touch.clientY : event.clientY;
-
-    const rect = this._canvas.getBoundingClientRect();
-    this.mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const hits = this.raycaster.intersectObjects(this.group.children, true);
-
-    if (hits.length > 0) {
-      const hitObj = hits[0].object;
-      for (const [, data] of this.loadedObjects) {
-        if (data.mesh === hitObj || hitObj.parent === data.mesh || data.mesh.children?.includes(hitObj)) {
-          this._playPartSound(data);
-          this.dispatchEvent(new CustomEvent('part-clicked', {
-            detail: { partName: data.originalFileName, partData: data }
-          }));
-          break;
+    if (config.parts) {
+      for (const part of config.parts) {
+        if (part.name && part.soundUrl) {
+          this._soundMap.set(part.name.toLowerCase(), part.soundUrl);
         }
       }
     }
-  }
 
-  _playPartSound(partData) {
-    // Stop + dispose previous audio
-    if (this.activeAudio) {
-      if (this.activeAudio.isPlaying) this.activeAudio.stop();
-      this.activeAudio.disconnect();
-      this.activeAudio = null;
-    }
-    this._stopVibration();
-
-    const buffer = partData.soundBuffer || this.defaultClickSoundBuffer;
-    if (!buffer) return;
-
-    this.activeAudio = new THREE.Audio(this.audioListener);
-    this.activeAudio.setBuffer(buffer);
-    this.activeAudio.setLoop(false);
-    this.activeAudio.setVolume(0.5);
-
-    const endTime = performance.now() + buffer.duration * 1000;
-    this._startVibration(endTime);
-    this.activeAudio.play();
-  }
-
-  // ── Vibration ───────────────────────────────────────────
-
-  _startVibration(endTimeMs) {
-    this.vibrationActive = true;
-    this.vibrationEndTime = endTimeMs;
-    this.originalPositions.clear();
-    this.originalEmissive.clear();
-
-    for (const [id, data] of this.loadedObjects) {
-      const name = data.originalFileName.toLowerCase();
-      if (this.vibratableParts.includes(name)) {
-        this.originalPositions.set(id, data.mesh.position.clone());
-      }
-      if (name.includes('light') && data.mesh.material?.isMeshStandardMaterial) {
-        this.originalEmissive.set(id, {
-          color: data.mesh.material.emissive.clone(),
-          intensity: data.mesh.material.emissiveIntensity
-        });
-        data.mesh.material.emissive.copy(data.mesh.material.color);
-        data.mesh.material.emissiveIntensity = 0.8;
-        data.mesh.material.needsUpdate = true;
-      }
-    }
-  }
-
-  _stopVibration() {
-    this.vibrationActive = false;
-    for (const [id, data] of this.loadedObjects) {
-      if (this.originalPositions.has(id)) data.mesh.position.copy(this.originalPositions.get(id));
-      if (this.originalEmissive.has(id)) {
-        const orig = this.originalEmissive.get(id);
-        data.mesh.material.emissive.copy(orig.color);
-        data.mesh.material.emissiveIntensity = orig.intensity;
-        data.mesh.material.needsUpdate = true;
-      }
-    }
-    this.originalPositions.clear();
-    this.originalEmissive.clear();
-  }
-
-  _updateVibration() {
-    if (!this.vibrationActive) return;
-    const now = performance.now();
-    if (now >= this.vibrationEndTime) { this._stopVibration(); return; }
-
-    const elapsed = now - (this.vibrationEndTime -
-      (this.activeAudio?.buffer ? this.activeAudio.buffer.duration : 0) * 1000);
-    const offset = Math.sin(elapsed * 0.001 * this.vibrationFrequency * Math.PI * 2) * this.vibrationAmplitude;
-
-    for (const [id, data] of this.loadedObjects) {
-      if (!this.originalPositions.has(id)) continue;
-      data.mesh.position.copy(this.originalPositions.get(id));
-      data.mesh.position[this.vibrationAxis] += offset;
-    }
-  }
-
-  // ── Camera ──────────────────────────────────────────────
-
-  _updateCamera() {
-    if (this.loadedObjects.size === 0) {
-      this.camera.position.set(-60, 30, 90);
-      this.controls.target.set(0, 0, 0);
-      this.controls.update();
-      this.group.position.set(0, 0, 0);
+    // Load GLB
+    const glbUrl = config.glbUrl;
+    if (!glbUrl) {
+      this._showError('No GLB model URL in config');
       return;
     }
 
-    const box = new THREE.Box3().setFromObject(this.group);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
+    this._viewer.src = glbUrl;
 
-    // Align to ground
-    this.group.position.y += this.groundPlane.position.y - box.min.y;
-    this.group.position.x -= center.x;
-    this.group.position.z -= center.z;
+    return new Promise((resolve, reject) => {
+      const onLoad = () => {
+        cleanup();
+        this._centerTarget();
+        this._applyMatte();
+        this._applyColors(config);
+        this._hideLoading();
+        this.dispatchEvent(new CustomEvent('car-loaded', { detail: { config } }));
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        this._showError('Failed to load 3D model');
+        reject(new Error('GLB load failed'));
+      };
+      const cleanup = () => {
+        this._viewer.removeEventListener('load', onLoad);
+        this._viewer.removeEventListener('error', onError);
+      };
+      this._viewer.addEventListener('load', onLoad, { once: true });
+      this._viewer.addEventListener('error', onError, { once: true });
+    });
+  }
 
-    box.setFromObject(this.group);
-    box.getCenter(center);
-    this.controls.target.copy(center);
+  // Center orbit pivot on model center, biased toward ground
+  _centerTarget() {
+    // getDimensions returns {x, y, z} size in meters
+    const dim = this._viewer.getDimensions();
+    if (!dim) return;
+    // Pivot at 1/3 of the height — low enough to feel grounded,
+    // high enough that rotation doesn't clip the ground
+    const pivotY = dim.y * 0.33;
+    this._viewer.cameraTarget = `auto ${pivotY}m auto`;
+  }
 
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = this.camera.fov * (Math.PI / 180);
-    const dist = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+  // Force matte wood-toy look on all materials
+  _applyMatte() {
+    if (!this._viewer.model) return;
+    for (const mat of this._viewer.model.materials) {
+      mat.pbrMetallicRoughness.setMetallicFactor(0.1);
+      mat.pbrMetallicRoughness.setRoughnessFactor(0.8);
+    }
+  }
 
-    this.camera.position.copy(center);
-    this.camera.position.x += dist * 0.7;
-    this.camera.position.z += dist * 0.8;
-    this.camera.position.y += dist * 0.5;
-    this.camera.lookAt(center);
-    this.controls.update();
+  // Apply colors from config parts to matching materials
+  _applyColors(config) {
+    if (!config.parts || !this._viewer.model) return;
+
+    for (const part of config.parts) {
+      const mat = this._viewer.model.materials.find(
+        m => m.name.toLowerCase() === part.name.toLowerCase()
+      );
+      if (mat && part.defaultColor) {
+        const c = this._hexToRgb(part.defaultColor);
+        const alpha = part.opacity !== undefined ? part.opacity : 1;
+        mat.pbrMetallicRoughness.setBaseColorFactor([c.r, c.g, c.b, alpha]);
+      }
+    }
+  }
+
+  _hexToRgb(hex) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
+  }
+
+  // ── Click → sound ──────────────────────────────────────
+
+  _handleClick() {
+    this._playSound(this._defaultClickSound);
+    this.dispatchEvent(new CustomEvent('part-clicked', { detail: { partName: 'car' } }));
+  }
+
+  // ── Audio ──────────────────────────────────────────────
+
+  _playSound(url) {
+    if (!url) return;
+    this._stopSound();
+
+    const audio = new Audio(url);
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+    this._activeSound = audio;
+
+    this._startVibration();
+
+    audio.addEventListener('ended', () => {
+      if (this._activeSound === audio) this._activeSound = null;
+      this._stopVibration();
+    });
+  }
+
+  _stopSound() {
+    if (this._activeSound) { this._activeSound.pause(); this._activeSound = null; }
+    this._stopVibration();
+  }
+
+  // ── Vibration (CSS transform shake) ────────────────────
+
+  _startVibration() {
+    this._vibrationActive = true;
+    this._vibrationEndTime = performance.now() + 800;
+    this._animateVibration();
+  }
+
+  _stopVibration() {
+    this._vibrationActive = false;
+    if (this._vibrationRaf) { cancelAnimationFrame(this._vibrationRaf); this._vibrationRaf = null; }
+  }
+
+  _animateVibration() {
+    if (!this._vibrationActive || performance.now() >= this._vibrationEndTime) {
+      this._stopVibration();
+      return;
+    }
+    this._vibrationRaf = requestAnimationFrame(() => this._animateVibration());
+  }
+
+  // ── Public API ─────────────────────────────────────────
+
+  // Capture current view as a data URL (PNG)
+  toImage() {
+    if (!this._viewer) return null;
+    return this._viewer.toDataURL('image/png');
+  }
+
+  // Capture a side-view snapshot for use as map marker / thumbnail
+  async toSideView() {
+    if (!this._viewer) return null;
+    // Save current camera
+    const prevOrbit = this._viewer.getCameraOrbit();
+    const prevFov = this._viewer.getFieldOfView();
+
+    // Set side view: 90deg = pure side, 75deg = slightly above
+    this._viewer.cameraOrbit = '90deg 75deg auto';
+    this._viewer.fieldOfView = '35deg';
+    this._viewer.jumpCameraToGoal();
+
+    // Wait one frame for render
+    await new Promise(r => requestAnimationFrame(r));
+    const dataUrl = this._viewer.toDataURL('image/png');
+
+    // Restore camera
+    this._viewer.cameraOrbit = `${prevOrbit.theta}rad ${prevOrbit.phi}rad ${prevOrbit.radius}m`;
+    this._viewer.fieldOfView = `${prevFov}deg`;
+    this._viewer.jumpCameraToGoal();
+
+    return dataUrl;
   }
 
   resetView() {
-    this._updateCamera();
-  }
-
-  // ── Cleanup ─────────────────────────────────────────────
-
-  _clearAllParts() {
-    // Stop & dispose active audio
-    if (this.activeAudio) {
-      if (this.activeAudio.isPlaying) this.activeAudio.stop();
-      this.activeAudio.disconnect();
-      this.activeAudio = null;
+    if (this._viewer) {
+      this._centerTarget();
+      this._viewer.cameraOrbit = '41deg 65deg auto';
+      this._viewer.fieldOfView = '45deg';
+      this._viewer.jumpCameraToGoal();
     }
-    this._stopVibration();
-
-    // Dispose geometries & materials
-    if (this.group) {
-      this.group.children.forEach(child => {
-        if (child.isMesh) {
-          child.geometry?.dispose();
-          child.material?.dispose();
-        }
-      });
-      this.group.clear();
-    }
-    this.loadedObjects.clear();
-    this.defaultClickSoundBuffer = null;
   }
 
   destroy() {
-    this.isDestroyed = true;
-    this._stopAnimation();
-
-    // Abort in-flight loads
-    if (this.loadAbortController) {
-      this.loadAbortController.abort();
-      this.loadAbortController = null;
-    }
-
-    if (this._resizeObs) this._resizeObs.disconnect();
-
-    if (this._onClick) {
-      this._canvas.removeEventListener('click', this._onClick);
-      this._canvas.removeEventListener('touchstart', this._onClick);
-    }
-
-    this._clearAllParts();
-
-    // Dispose audio buffers
-    this.audioBuffers.clear();
-
-    if (this.renderer) {
-      this.renderer.dispose();
-      this.renderer.forceContextLoss();
-      this.renderer = null;
-    }
-    if (this.controls) {
-      this.controls.dispose();
-      this.controls = null;
-    }
-
-    this.scene = null;
-    this.camera = null;
+    this._isDestroyed = true;
+    this._removeEvents();
+    this._stopSound();
+    if (this._viewer) { this._viewer.src = ''; }
   }
 
-  // ── Resize ──────────────────────────────────────────────
+  // ── UI helpers ─────────────────────────────────────────
 
-  _handleResize() {
-    if (!this.renderer || !this.camera || this.isDestroyed) return;
-    const { width, height } = this.getBoundingClientRect();
-    if (width > 0 && height > 0) {
-      this.camera.aspect = width / height;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(width, height);
-    }
-  }
-
-  // ── UI helpers ──────────────────────────────────────────
-
-  _showLoading(msg = 'Loading…') {
-    this._loadingEl.textContent = msg;
-    this._loadingEl.hidden = false;
-    this._errorEl.hidden = true;
-  }
-
-  _hideLoading() {
-    this._loadingEl.hidden = true;
-  }
-
-  _showError(msg) {
-    this._errorEl.textContent = msg;
-    this._errorEl.hidden = false;
-    this._loadingEl.hidden = true;
-  }
+  _showLoading(msg = 'Loading…') { this._loadingEl.textContent = msg; this._loadingEl.hidden = false; this._errorEl.hidden = true; }
+  _hideLoading() { this._loadingEl.hidden = true; }
+  _showError(msg) { this._errorEl.textContent = msg; this._errorEl.hidden = false; this._loadingEl.hidden = true; }
 }
 
 customElements.define('car-viewer', CarViewer);
