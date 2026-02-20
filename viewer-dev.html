@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vrooom — Car Viewer Dev Harness</title>
+  <link rel="icon" href="./icons/favicon.ico">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Three.js import map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./js/components/car-viewer/index.js"></script>
+
+  <style>
+    :root {
+      --bg: #f5f3ef;
+      --fg: #2a2520;
+      --muted: #9a948b;
+      --accent: #f45436;
+      --accent-soft: rgba(244,84,54,0.1);
+      --surface: rgba(255,255,255,0.92);
+      --surface-border: rgba(0,0,0,0.06);
+      --surface-shadow: 0 2px 20px rgba(0,0,0,0.08);
+      --glass: rgba(255,255,255,0.88);
+      --glass-blur: blur(20px);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --font: 'DM Sans', -apple-system, system-ui, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--fg);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    car-viewer {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+    }
+
+    /* ── Config toggle ─────────────────────────── */
+    .toolbar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      gap: 0;
+      background: var(--glass);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      box-shadow: var(--surface-shadow);
+      overflow: hidden;
+    }
+
+    .toolbar button {
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.55rem 1.2rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .toolbar button:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 20%; height: 60%; width: 1px;
+      background: var(--surface-border);
+    }
+
+    .toolbar button.active {
+      color: var(--fg);
+      background: var(--accent-soft);
+    }
+
+    .toolbar button:hover:not(.active) {
+      color: var(--fg);
+      background: rgba(0,0,0,0.03);
+    }
+
+    /* ── Controls ────────────────────────────────── */
+    .controls {
+      position: fixed;
+      bottom: 4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      gap: 0;
+      background: var(--glass);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      box-shadow: var(--surface-shadow);
+      overflow: hidden;
+    }
+
+    .control-btn {
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .control-btn:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 20%; height: 60%; width: 1px;
+      background: var(--surface-border);
+    }
+
+    .control-btn[data-state="on"] {
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .control-btn:hover:not([data-state="on"]) {
+      color: var(--fg);
+      background: rgba(0,0,0,0.03);
+    }
+
+    /* ── Car name badge ──────────────────────────── */
+    .car-name {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--glass);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      padding: 0.4rem 1rem;
+      box-shadow: var(--surface-shadow);
+    }
+
+    /* ── Snap card ──────────────────────────────── */
+    .snap-card {
+      position: fixed;
+      bottom: 7rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--surface-shadow);
+      padding: 4px;
+      width: 160px;
+      height: 160px;
+      overflow: hidden;
+    }
+
+    .snap-card[hidden] { display: none; }
+
+    .snap-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* ── Tuning panel ──────────────────────────── */
+    .tuning-panel {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+    }
+
+    .tuning-toggle {
+      font-family: var(--font);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      background: var(--glass);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      color: var(--muted);
+      cursor: pointer;
+      box-shadow: var(--surface-shadow);
+    }
+
+    .tuning-toggle:hover { color: var(--fg); }
+
+    .tuning-body {
+      display: none;
+      margin-top: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--surface-shadow);
+      padding: 0.75rem;
+      width: 220px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .tuning-body.open { display: block; }
+
+    .tuning-body fieldset {
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tuning-body legend {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      padding: 0 0.3rem;
+    }
+
+    .tuning-body label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.7rem;
+      color: var(--fg);
+      margin-bottom: 0.3rem;
+      gap: 0.4rem;
+    }
+
+    .tuning-body input[type="number"] {
+      width: 65px;
+      font-family: var(--font);
+      font-size: 0.7rem;
+      padding: 0.2rem 0.3rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      background: white;
+      text-align: right;
+    }
+
+    .tuning-body select {
+      width: 80px;
+      font-family: var(--font);
+      font-size: 0.7rem;
+      padding: 0.2rem 0.2rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .tuning-body input[type="color"] {
+      width: 32px;
+      height: 24px;
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      padding: 1px;
+      cursor: pointer;
+    }
+
+    .tuning-copy {
+      width: 100%;
+      font-family: var(--font);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.4rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      background: white;
+      color: var(--fg);
+      cursor: pointer;
+      margin-top: 0.4rem;
+    }
+
+    .tuning-copy:hover { background: var(--accent-soft); }
+
+    .tuning-output {
+      margin-top: 0.3rem;
+      font-family: monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      background: #f8f8f6;
+      border-radius: 6px;
+      padding: 0.4rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+      max-height: 120px;
+      overflow-y: auto;
+      user-select: all;
+    }
+
+    .tuning-output.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Viewer -->
+  <car-viewer id="viewer" background-color="#f45436" auto-rotate></car-viewer>
+
+  <!-- Config toggle -->
+  <div class="toolbar">
+    <button class="active" data-config="./data/conf-vroom.json">Vroom</button>
+    <button data-config="./data/conf-dodge.json">Grree</button>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="engineBtn" class="control-btn" data-state="off">Engine</button>
+    <button id="lightsBtn" class="control-btn" data-state="off">Lights</button>
+    <button id="rotateBtn" class="control-btn" data-state="on">Rotate</button>
+    <button id="snapBtn" class="control-btn">Snap</button>
+    <button id="outlineBtn" class="control-btn">Outline</button>
+  </div>
+
+  <div class="snap-card" id="snapCard" hidden>
+    <img id="snapImg" alt="Capture">
+  </div>
+
+  <div class="car-name" id="carName">Loading...</div>
+
+  <!-- Tuning panel -->
+  <div class="tuning-panel">
+    <button class="tuning-toggle" id="tuningToggle">Tune</button>
+    <div class="tuning-body" id="tuningBody">
+
+      <fieldset>
+        <legend>Front Lights</legend>
+        <label>Color <input type="color" id="fl-color" value="#ebfb04"></label>
+        <label>Intensity <input type="number" id="fl-intensity" value="10" min="0" max="50" step="0.5"></label>
+        <label>Beam length <input type="number" id="fl-length" value="1.4" min="0.5" max="10" step="0.1"></label>
+        <label>Cone angle <input type="number" id="fl-angle" value="15" min="5" max="90" step="1"></label>
+        <label>Opacity <input type="number" id="fl-opacity" value="0.10" min="0" max="1" step="0.01"></label>
+        <label>Origin push <input type="number" id="fl-push" value="-0.1" min="-1" max="1" step="0.05"></label>
+        <label>Y drop <input type="number" id="fl-ydrop" value="0.2" min="0" max="3" step="0.1"></label>
+        <label>Blending
+          <select id="fl-blending">
+            <option value="additive" selected>Additive</option>
+            <option value="normal">Normal</option>
+            <option value="multiply">Multiply</option>
+            <option value="subtractive">Subtractive</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Rear Lights</legend>
+        <label>Color <input type="color" id="rl-color" value="#d30303"></label>
+        <label>Intensity <input type="number" id="rl-intensity" value="20" min="0" max="50" step="0.5"></label>
+        <label>Beam length <input type="number" id="rl-length" value="0.6" min="0.1" max="10" step="0.1"></label>
+        <label>Cone angle <input type="number" id="rl-angle" value="10" min="5" max="90" step="1"></label>
+        <label>Opacity <input type="number" id="rl-opacity" value="0.18" min="0" max="1" step="0.01"></label>
+        <label>Origin push <input type="number" id="rl-push" value="-0.2" min="-1" max="1" step="0.05"></label>
+        <label>Y drop <input type="number" id="rl-ydrop" value="0" min="0" max="3" step="0.1"></label>
+        <label>Blending
+          <select id="rl-blending">
+            <option value="normal" selected>Normal</option>
+            <option value="additive">Additive</option>
+            <option value="multiply">Multiply</option>
+            <option value="subtractive">Subtractive</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <button class="tuning-copy" id="tuningCopy">Copy values</button>
+      <div class="tuning-output" id="tuningOutput"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    const viewer = document.getElementById('viewer');
+    const carName = document.getElementById('carName');
+    const engineBtn = document.getElementById('engineBtn');
+    const lightsBtn = document.getElementById('lightsBtn');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const snapBtn = document.getElementById('snapBtn');
+    const outlineBtn = document.getElementById('outlineBtn');
+    const snapCard = document.getElementById('snapCard');
+    const snapImg = document.getElementById('snapImg');
+
+    // ── Load initial car ──
+    let activeConfig = './data/conf-vroom.json';
+
+    async function loadConfig(url) {
+      activeConfig = url;
+      // Stop engine & lights
+      viewer.stopEngine();
+      viewer.toggleLights(false);
+      engineBtn.dataset.state = 'off';
+      lightsBtn.dataset.state = 'off';
+
+      const res = await fetch(url);
+      const config = await res.json();
+      carName.textContent = config.carName || 'Car';
+      await viewer.loadCar(config);
+    }
+
+    loadConfig(activeConfig);
+
+    // ── Config toggle ──
+    document.querySelectorAll('.toolbar button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadConfig(btn.dataset.config);
+      });
+    });
+
+    // ── Engine ──
+    engineBtn.addEventListener('click', () => {
+      const isOn = engineBtn.dataset.state === 'on';
+      if (isOn) {
+        viewer.stopEngine();
+        engineBtn.dataset.state = 'off';
+      } else {
+        viewer.startEngine();
+        engineBtn.dataset.state = 'on';
+      }
+    });
+
+    // ── Lights ──
+    function readLightParams() {
+      return {
+        front: {
+          color:     document.getElementById('fl-color').value,
+          intensity: parseFloat(document.getElementById('fl-intensity').value),
+          length:    parseFloat(document.getElementById('fl-length').value),
+          angle:     parseFloat(document.getElementById('fl-angle').value),
+          opacity:   parseFloat(document.getElementById('fl-opacity').value),
+          push:      parseFloat(document.getElementById('fl-push').value),
+          yDrop:     parseFloat(document.getElementById('fl-ydrop').value),
+          blending:  document.getElementById('fl-blending').value
+        },
+        rear: {
+          color:     document.getElementById('rl-color').value,
+          intensity: parseFloat(document.getElementById('rl-intensity').value),
+          length:    parseFloat(document.getElementById('rl-length').value),
+          angle:     parseFloat(document.getElementById('rl-angle').value),
+          opacity:   parseFloat(document.getElementById('rl-opacity').value),
+          push:      parseFloat(document.getElementById('rl-push').value),
+          yDrop:     parseFloat(document.getElementById('rl-ydrop').value),
+          blending:  document.getElementById('rl-blending').value
+        }
+      };
+    }
+
+    lightsBtn.addEventListener('click', () => {
+      const isOn = lightsBtn.dataset.state === 'on';
+      viewer.toggleLights(!isOn, readLightParams());
+      lightsBtn.dataset.state = isOn ? 'off' : 'on';
+    });
+
+    // ── Rotate ──
+    rotateBtn.addEventListener('click', () => {
+      const isOn = rotateBtn.dataset.state === 'on';
+      viewer.setAttribute('auto-rotate', isOn ? 'false' : 'true');
+      rotateBtn.dataset.state = isOn ? 'off' : 'on';
+    });
+
+    // ── Snap ──
+    snapBtn.addEventListener('click', async () => {
+      const dataUrl = await viewer.toSideView();
+      if (dataUrl) {
+        snapImg.src = dataUrl;
+        snapCard.hidden = false;
+      }
+    });
+
+    // ── Outline ──
+    outlineBtn.addEventListener('click', () => {
+      const dataUrl = viewer.toOutline();
+      if (dataUrl) {
+        snapImg.src = dataUrl;
+        snapCard.hidden = false;
+      }
+    });
+
+    // ── Tuning panel ──
+    document.getElementById('tuningToggle').addEventListener('click', () => {
+      document.getElementById('tuningBody').classList.toggle('open');
+    });
+
+    // Live-apply tuning changes when lights are on
+    document.getElementById('tuningBody').addEventListener('input', () => {
+      if (lightsBtn.dataset.state === 'on') {
+        viewer.toggleLights(true, readLightParams());
+      }
+    });
+
+    // ── Copy values ──
+    document.getElementById('tuningCopy').addEventListener('click', () => {
+      const params = readLightParams();
+      const json = JSON.stringify(params, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        document.getElementById('tuningCopy').textContent = 'Copied!';
+        setTimeout(() => { document.getElementById('tuningCopy').textContent = 'Copy values'; }, 1500);
+      }).catch(() => {});
+      const out = document.getElementById('tuningOutput');
+      out.textContent = json;
+      out.classList.add('visible');
+    });
+  </script>
+
+</body>
+</html>

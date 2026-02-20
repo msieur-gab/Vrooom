@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v1';
+const CACHE_NAME = 'vrooom-v2';
 
 const PRECACHE = [
   './',
@@ -12,7 +12,14 @@ const PRECACHE = [
   './css/components.css',
   './css/map.css',
   './js/app.js',
-  './js/components/car-viewer.js',
+  './js/components/car-viewer/index.js',
+  './js/components/car-viewer/scene.js',
+  './js/components/car-viewer/car-loader.js',
+  './js/components/car-viewer/controls.js',
+  './js/components/car-viewer/interaction.js',
+  './js/components/car-viewer/vibration.js',
+  './js/components/car-viewer/headlights.js',
+  './js/components/car-viewer/capture.js',
   './js/services/database.js',
   './js/services/nfc.js',
   './js/services/playground.js',
