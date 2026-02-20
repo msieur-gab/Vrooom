@@ -30,16 +30,21 @@ import { createVibration } from './vibration.js';
 import { createHeadlights } from './headlights.js';
 import { sideView, outline } from './capture.js';
 
+const THROTTLE_MS = 33; // ~30fps for auto-rotate — plenty for a slow spin
+
 class CarViewer extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this._isDestroyed = false;
     this._rafId = null;
-    this._continuousCount = 0;
-    this._isVisible = true;
+    this._needsContinuous = false; // true when auto-rotate or engine active
+    this._needsHighFPS = false;    // true only during vibration/engine
+    this._isVisible = false;
+    this._initialized = false;     // WebGL not created until loadCar()
+    this._lastRenderTime = 0;
 
-    // Module refs (set after loadCar)
+    // Module refs (set after _initThree / loadCar)
     this._scene = null;
     this._renderer = null;
     this._camera = null;
@@ -52,11 +57,12 @@ class CarViewer extends HTMLElement {
     this._headlights = null;
     this._config = null;
     this._resizeObs = null;
+    this._intersectionObs = null;
   }
 
   connectedCallback() {
     if (this._isDestroyed) return;
-    this._initDOM();
+    this._initShell();
   }
 
   disconnectedCallback() {
@@ -66,17 +72,19 @@ class CarViewer extends HTMLElement {
   static get observedAttributes() { return ['background-color', 'auto-rotate', 'interactive']; }
 
   attributeChangedCallback(name, _, val) {
+    if (!this._initialized) return;
     if (name === 'background-color' && this._scene) {
       const c = val || '#f45436';
       this._scene.background.set(c);
       this._renderer.setClearColor(c, 1);
       if (this._ground) this._ground.material.color.set(c);
-      this._requestRender();
+      this._scheduleRender();
     }
     if (name === 'auto-rotate' && this._controls) {
       const on = val !== null && val !== 'false';
       this._controls.setAutoRotate(on);
-      on ? this._startContinuous() : this._stopContinuous();
+      this._needsContinuous = on || this._needsHighFPS;
+      if (on) this._scheduleRender();
     }
   }
 
@@ -85,9 +93,9 @@ class CarViewer extends HTMLElement {
     return v === null || v !== 'false';
   }
 
-  // ── DOM setup ──────────────────────────────────────────
+  // ── Shell (lightweight — no WebGL) ─────────────────────
 
-  _initDOM() {
+  _initShell() {
     const bg = this.getAttribute('background-color') || '#f45436';
 
     this.shadowRoot.innerHTML = `
@@ -131,7 +139,21 @@ class CarViewer extends HTMLElement {
     this._loadingEl = this.shadowRoot.getElementById('loading');
     this._errorEl = this.shadowRoot.getElementById('error');
 
-    // Init Three.js scene
+    // Track visibility — don't render when off-screen
+    this._intersectionObs = new IntersectionObserver((entries) => {
+      this._isVisible = entries[0].isIntersecting;
+      if (this._isVisible && this._initialized) this._scheduleRender();
+    }, { threshold: 0 });
+    this._intersectionObs.observe(this);
+  }
+
+  // ── Lazy WebGL init (called once, on first loadCar) ────
+
+  _initThree() {
+    if (this._initialized) return;
+    this._initialized = true;
+
+    const bg = this.getAttribute('background-color') || '#f45436';
     const { scene, renderer, camera, keyLight, ground } = createScene(this._canvas, bg);
     this._scene = scene;
     this._renderer = renderer;
@@ -140,75 +162,64 @@ class CarViewer extends HTMLElement {
 
     // Size canvas
     const rect = this.getBoundingClientRect();
-    const w = rect.width || 300;
-    const h = rect.height || 300;
-    resize(renderer, camera, w, h);
+    resize(renderer, camera, rect.width || 300, rect.height || 300);
 
     // Controls
     const autoRotate = this.hasAttribute('auto-rotate') && this.getAttribute('auto-rotate') !== 'false';
     this._controls = createControls(camera, this._canvas, {
       autoRotate,
-      onChange: () => this._requestRender()
+      onChange: () => this._scheduleRender()
     });
-
-    // Auto-rotate needs continuous render
-    if (autoRotate) this._startContinuous();
+    this._needsContinuous = autoRotate;
 
     // ResizeObserver
     this._resizeObs = new ResizeObserver(() => {
       const r = this.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) {
         resize(this._renderer, this._camera, r.width, r.height);
-        this._requestRender();
+        this._scheduleRender();
       }
     });
     this._resizeObs.observe(this);
-
-    // Pause render loop when element is not visible (hidden screens)
-    this._intersectionObs = new IntersectionObserver((entries) => {
-      this._isVisible = entries[0].isIntersecting;
-      if (this._isVisible) this._requestRender();
-    }, { threshold: 0 });
-    this._intersectionObs.observe(this);
-
-    // Initial render
-    this._requestRender();
   }
 
-  // ── Render loop ────────────────────────────────────────
+  // ── Render loop (throttled) ────────────────────────────
 
-  _requestRender() {
-    if (this._isDestroyed || this._rafId || !this._isVisible) return;
-    this._rafId = requestAnimationFrame(() => {
+  _scheduleRender() {
+    if (this._isDestroyed || this._rafId || !this._isVisible || !this._initialized) return;
+    this._rafId = requestAnimationFrame((t) => {
       this._rafId = null;
-      this._render();
+      this._tick(t);
     });
   }
 
-  _render() {
+  _tick(timestamp) {
     if (this._isDestroyed || !this._isVisible) return;
+
+    // Throttle: skip frame if we rendered recently (unless high-fps mode)
+    if (!this._needsHighFPS) {
+      const elapsed = timestamp - this._lastRenderTime;
+      if (elapsed < THROTTLE_MS) {
+        // Re-schedule for next frame instead of skipping entirely
+        if (this._needsContinuous) {
+          this._rafId = requestAnimationFrame((t) => { this._rafId = null; this._tick(t); });
+        }
+        return;
+      }
+    }
+
+    this._lastRenderTime = timestamp;
     this._controls.update();
 
     const vibrating = this._vibration ? this._vibration.update() : false;
+    this._needsHighFPS = vibrating;
 
     this._renderer.render(this._scene, this._camera);
 
-    // Keep looping if continuous consumers are active
-    if (this._continuousCount > 0 || vibrating) {
-      this._rafId = requestAnimationFrame(() => {
-        this._rafId = null;
-        this._render();
-      });
+    // Continue loop if needed
+    if (this._needsContinuous || vibrating) {
+      this._rafId = requestAnimationFrame((t) => { this._rafId = null; this._tick(t); });
     }
-  }
-
-  _startContinuous() {
-    this._continuousCount++;
-    if (this._continuousCount === 1) this._requestRender();
-  }
-
-  _stopContinuous() {
-    this._continuousCount = Math.max(0, this._continuousCount - 1);
   }
 
   // ── Public API ─────────────────────────────────────────
@@ -216,7 +227,10 @@ class CarViewer extends HTMLElement {
   async loadCar(config) {
     if (this._isDestroyed) return;
 
-    // Cleanup previous
+    // Lazy-init WebGL on first load
+    this._initThree();
+
+    // Cleanup previous car
     this._disposeCarModules();
 
     this._showLoading('Loading car...');
@@ -243,20 +257,19 @@ class CarViewer extends HTMLElement {
           carGroup,
           defaultClickSound: config.defaultClickSound,
           onPartClicked: (partName, mesh) => {
-            // Vibrate vibratable parts
             const vibratableParts = config.vibratableParts || [];
             if (vibratableParts.includes(partName)) {
               this._vibration.triggerClickShake();
-              this._requestRender();
+              this._scheduleRender();
             }
             this.dispatchEvent(new CustomEvent('part-clicked', { detail: { partName } }));
           },
-          requestRender: () => this._requestRender()
+          requestRender: () => this._scheduleRender()
         });
       }
 
       this._hideLoading();
-      this._requestRender();
+      this._scheduleRender();
       this.dispatchEvent(new CustomEvent('car-loaded', { detail: { config } }));
     } catch (err) {
       console.error('[car-viewer] Load error:', err);
@@ -286,28 +299,31 @@ class CarViewer extends HTMLElement {
   resetView() {
     if (this._controls) {
       this._controls.reset();
-      this._requestRender();
+      this._scheduleRender();
     }
   }
 
   startEngine() {
     if (!this._vibration || !this._interaction) return;
     this._vibration.startEngine(this._interaction.getAudioMap());
-    this._startContinuous();
-    this._requestRender();
+    this._needsContinuous = true;
+    this._needsHighFPS = true;
+    this._scheduleRender();
   }
 
   stopEngine() {
     if (!this._vibration) return;
     this._vibration.stopEngine();
-    this._stopContinuous();
-    this._requestRender();
+    this._needsHighFPS = false;
+    const autoRotate = this.hasAttribute('auto-rotate') && this.getAttribute('auto-rotate') !== 'false';
+    this._needsContinuous = autoRotate;
+    this._scheduleRender();
   }
 
   toggleLights(on, params) {
     if (!this._headlights) return;
     this._headlights.toggle(on, params);
-    this._requestRender();
+    this._scheduleRender();
   }
 
   destroy() {
