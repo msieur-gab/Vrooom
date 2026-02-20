@@ -158,36 +158,40 @@
   </section>
 
   <!-- ═══════════════════════════════════════════
-       SCREEN: Settings / Profile
+       SCREEN: Garage (home)
        ═══════════════════════════════════════════ -->
-  <section id="settings-screen" class="screen settings-screen" hidden>
-    <div class="settings-section">
-      <h2 class="mb-16">Profile</h2>
-      <div class="card" id="profile-display">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-          <span style="font-size:32px;" id="settings-avatar"></span>
-          <span style="font-size:18px;font-weight:500;" id="settings-name"></span>
-        </div>
-      </div>
+  <section id="garage-screen" class="screen garage-screen" hidden>
+    <div class="garage-car-wrap car-viewer-wrap">
+      <car-viewer id="garage-car" background-color="#f45436" auto-rotate></car-viewer>
     </div>
 
-    <div class="settings-section">
-      <h3>Car</h3>
-      <div class="card">
-        <p style="font-size:15px;margin-bottom:12px;" id="settings-car-name">No car selected</p>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-secondary" id="btn-settings-scan">Scan NFC</button>
-          <button class="btn btn-ghost" id="btn-settings-pick">Switch Car</button>
-        </div>
-      </div>
+    <div class="garage-controls">
+      <button class="garage-control-btn" id="btn-garage-engine" aria-label="Engine">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M6 6h12l2 4v8H4v-8l2-4z"/><circle cx="9" cy="15" r="2"/><circle cx="15" cy="15" r="2"/></svg>
+      </button>
+      <button class="garage-control-btn" id="btn-garage-lights" aria-label="Lights">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+      </button>
+      <button class="garage-control-btn" id="btn-garage-horn" aria-label="Horn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.08"/></svg>
+      </button>
     </div>
 
-    <div class="settings-section">
-      <h3>Data</h3>
-      <div class="card">
-        <button class="btn btn-ghost btn-block" id="btn-export">Export Data</button>
-      </div>
+    <div class="garage-driver">
+      <span class="garage-avatar" id="garage-avatar"></span>
+      <span class="garage-name" id="garage-name"></span>
     </div>
+
+    <p class="garage-car-name" id="garage-car-name">No car selected</p>
+
+    <div class="garage-actions">
+      <button class="btn btn-secondary" id="btn-garage-scan">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18.5a5 5 0 0 1 0-13"/><path d="M18 18.5a5 5 0 0 0 0-13"/><circle cx="12" cy="12" r="1"/></svg>
+        Scan NFC
+      </button>
+      <button class="btn btn-ghost" id="btn-garage-pick">Switch Car</button>
+    </div>
+    <button class="btn btn-ghost" id="btn-export" style="max-width:320px;">Export Data</button>
   </section>
 
   <!-- ═══════════════════════════════════════════
@@ -195,17 +199,17 @@
        ═══════════════════════════════════════════ -->
   <nav class="bottom-nav" id="bottom-nav" hidden>
     <div class="nav-dot" id="nav-dot"></div>
-    <button class="nav-tab active" data-screen="map-screen">
+    <button class="nav-tab active" data-screen="garage-screen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17H3v-4l2-5h10l2 5v4h-2"/><path d="M5 17h10"/><path d="M9 12h6"/></svg>
+      Garage
+    </button>
+    <button class="nav-tab" data-screen="map-screen">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       Map
     </button>
     <button class="nav-tab" data-screen="badge-screen">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
       Badges
-    </button>
-    <button class="nav-tab" data-screen="settings-screen">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Profile
     </button>
   </nav>
 

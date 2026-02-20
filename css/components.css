@@ -392,28 +392,77 @@
   -webkit-box-orient: vertical;
 }
 
-/* ── Settings screen ───────────────────────── */
+/* ── Garage screen ─────────────────────────── */
 
-.settings-screen {
-  padding: max(60px, env(safe-area-inset-top, 16px)) 16px max(88px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+.garage-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: max(48px, env(safe-area-inset-top, 16px)) 24px max(88px, calc(env(safe-area-inset-bottom, 0px) + 88px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: var(--bg);
 }
 
-.settings-section {
-  max-width: 400px;
-  margin: 0 auto 16px;
+.garage-car-wrap {
+  max-width: 340px;
 }
 
-.settings-section h3 {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+/* ── Garage toy controls ──────────────────── */
+
+.garage-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.garage-control-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
   color: var(--muted);
-  margin-bottom: 8px;
-  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.garage-control-btn:active { transform: scale(0.9); }
+
+.garage-control-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.garage-driver {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.garage-avatar {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.garage-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.garage-car-name {
+  font-size: 15px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.garage-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* ── Toast ─────────────────────────────────── */

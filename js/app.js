@@ -34,6 +34,8 @@ let selectedAvatar = null;
 let pendingCarConfig = null;
 let carSideViewUrl = null;
 let carSounds = { horn: null, engine: null };
+let garageEngineOn = false;
+let garageLightsOn = false;
 
 // ── DOM refs ──────────────────────────────────
 
@@ -64,10 +66,9 @@ async function init() {
   setupEventListeners();
 
   if (profile && selectedCar) {
-    showScreen('map-screen');
+    showScreen('garage-screen');
     $('bottom-nav').hidden = false;
-    initMapScreen();
-    updateSettingsScreen();
+    updateGarageScreen();
   } else {
     showScreen('welcome');
     loadWelcomeCar();
@@ -82,7 +83,7 @@ function showScreen(screenId) {
   });
 
   // Show/hide bottom nav
-  const mainScreens = ['map-screen', 'badge-screen', 'settings-screen'];
+  const mainScreens = ['garage-screen', 'map-screen', 'badge-screen'];
   $('bottom-nav').hidden = !mainScreens.includes(screenId);
 
   // Update nav tabs
@@ -94,9 +95,9 @@ function showScreen(screenId) {
   }
 
   // Trigger screen-specific init
+  if (screenId === 'garage-screen') updateGarageScreen();
   if (screenId === 'map-screen' && !map) initMapScreen();
   if (screenId === 'badge-screen') renderBadges();
-  if (screenId === 'settings-screen') updateSettingsScreen();
 }
 
 function updateNavDot() {
@@ -124,7 +125,15 @@ function setupEventListeners() {
   $('btn-confirm-car').addEventListener('click', confirmCarSelection);
 
   // Car onboard
-  $('btn-create-profile').addEventListener('click', () => showScreen('profile-create'));
+  $('btn-create-profile').addEventListener('click', () => {
+    if (profile) {
+      // Already has profile — go back to garage
+      showScreen('garage-screen');
+      $('bottom-nav').hidden = false;
+    } else {
+      showScreen('profile-create');
+    }
+  });
 
   // Profile
   $('btn-save-profile').addEventListener('click', saveProfile);
@@ -144,10 +153,31 @@ function setupEventListeners() {
     tab.addEventListener('click', () => showScreen(tab.dataset.screen));
   });
 
-  // Settings
-  $('btn-settings-scan').addEventListener('click', startNFCScan);
-  $('btn-settings-pick').addEventListener('click', () => showScreen('car-select'));
+  // Garage
+  $('btn-garage-scan').addEventListener('click', startNFCScan);
+  $('btn-garage-pick').addEventListener('click', () => showScreen('car-select'));
   $('btn-export').addEventListener('click', exportData);
+
+  // Garage toy controls
+  $('btn-garage-engine').addEventListener('click', () => {
+    const viewer = $('garage-car');
+    if (!viewer) return;
+    garageEngineOn = !garageEngineOn;
+    if (garageEngineOn) viewer.startEngine(); else viewer.stopEngine();
+    $('btn-garage-engine').classList.toggle('active', garageEngineOn);
+  });
+
+  $('btn-garage-lights').addEventListener('click', () => {
+    const viewer = $('garage-car');
+    if (!viewer) return;
+    garageLightsOn = !garageLightsOn;
+    viewer.toggleLights(garageLightsOn);
+    $('btn-garage-lights').classList.toggle('active', garageLightsOn);
+  });
+
+  $('btn-garage-horn').addEventListener('click', () => {
+    playSound(carSounds.horn);
+  });
 
   // NFC modal
   $('btn-nfc-close').addEventListener('click', () => {
@@ -230,6 +260,7 @@ async function loadCarFromConfig(configUrl) {
 
     // Show onboard screen
     $('onboard-car-name').textContent = config.carName || 'Your Car';
+    $('btn-create-profile').textContent = profile ? 'Back to Garage' : 'Create Your Profile';
     showScreen('car-onboard');
 
     const viewer = $('onboard-car');
@@ -311,10 +342,9 @@ async function saveProfile() {
     selectedCar = car;
   }
 
-  showScreen('map-screen');
+  showScreen('garage-screen');
   $('bottom-nav').hidden = false;
-  initMapScreen();
-  updateSettingsScreen();
+  updateGarageScreen();
   showToast(`Welcome, ${name}!`);
 }
 
@@ -545,15 +575,30 @@ async function renderBadges() {
   grid.innerHTML = html;
 }
 
-// ── Settings screen ───────────────────────────
+// ── Garage screen ─────────────────────────────
 
-function updateSettingsScreen() {
+async function updateGarageScreen() {
+  // Reset toy controls
+  garageEngineOn = false;
+  garageLightsOn = false;
+  $('btn-garage-engine').classList.remove('active');
+  $('btn-garage-lights').classList.remove('active');
+
   if (profile) {
-    $('settings-avatar').textContent = profile.avatar;
-    $('settings-name').textContent = profile.name;
+    $('garage-avatar').textContent = profile.avatar;
+    $('garage-name').textContent = profile.name;
   }
   if (selectedCar) {
-    $('settings-car-name').textContent = selectedCar.name || 'Car selected';
+    $('garage-car-name').textContent = selectedCar.name || 'Car selected';
+    // Load car model into garage viewer
+    try {
+      const res = await fetch(selectedCar.config);
+      const config = await res.json();
+      const viewer = $('garage-car');
+      if (viewer) viewer.loadCar(config);
+    } catch (err) {
+      console.warn('Could not load garage car:', err);
+    }
   }
 }
 
