@@ -47,8 +47,8 @@ export function placeUser(map, lat, lon, carImageUrl, onTap) {
         <circle cx="8" cy="8" r="6" fill="var(--accent)" stroke="white" stroke-width="3"/>
       </svg>`;
 
-  const size = carImageUrl ? [40, 40] : [16, 16];
-  const anchor = carImageUrl ? [20, 20] : [8, 8];
+  const size = carImageUrl ? [80, 80] : [16, 16];
+  const anchor = carImageUrl ? [40, 40] : [8, 8];
 
   map._meMarker = L.marker([lat, lon], {
     icon: L.divIcon({
