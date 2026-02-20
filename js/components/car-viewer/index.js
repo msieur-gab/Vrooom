@@ -37,6 +37,7 @@ class CarViewer extends HTMLElement {
     this._isDestroyed = false;
     this._rafId = null;
     this._continuousCount = 0;
+    this._isVisible = true;
 
     // Module refs (set after loadCar)
     this._scene = null;
@@ -163,6 +164,13 @@ class CarViewer extends HTMLElement {
     });
     this._resizeObs.observe(this);
 
+    // Pause render loop when element is not visible (hidden screens)
+    this._intersectionObs = new IntersectionObserver((entries) => {
+      this._isVisible = entries[0].isIntersecting;
+      if (this._isVisible) this._requestRender();
+    }, { threshold: 0 });
+    this._intersectionObs.observe(this);
+
     // Initial render
     this._requestRender();
   }
@@ -170,7 +178,7 @@ class CarViewer extends HTMLElement {
   // ── Render loop ────────────────────────────────────────
 
   _requestRender() {
-    if (this._isDestroyed || this._rafId) return;
+    if (this._isDestroyed || this._rafId || !this._isVisible) return;
     this._rafId = requestAnimationFrame(() => {
       this._rafId = null;
       this._render();
@@ -178,7 +186,7 @@ class CarViewer extends HTMLElement {
   }
 
   _render() {
-    if (this._isDestroyed) return;
+    if (this._isDestroyed || !this._isVisible) return;
     this._controls.update();
 
     const vibrating = this._vibration ? this._vibration.update() : false;
@@ -306,6 +314,7 @@ class CarViewer extends HTMLElement {
     this._isDestroyed = true;
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
     if (this._resizeObs) { this._resizeObs.disconnect(); this._resizeObs = null; }
+    if (this._intersectionObs) { this._intersectionObs.disconnect(); this._intersectionObs = null; }
     this._disposeCarModules();
     if (this._controls) { this._controls.dispose(); this._controls = null; }
     if (this._renderer) { this._renderer.dispose(); this._renderer = null; }

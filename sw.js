@@ -54,6 +54,9 @@ self.addEventListener('activate', event => {
 
 // Fetch — cache-first for app shell, network-first for API calls
 self.addEventListener('fetch', event => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
   // Network-first for Overpass API
@@ -83,12 +86,15 @@ self.addEventListener('fetch', event => {
   // Cache-first for app resources
   event.respondWith(
     caches.match(event.request)
-      .then(cached => cached || fetch(event.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return res;
-      }))
+      .then(cached => cached || fetch(event.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => new Response('Not found', { status: 404 }))
+      )
   );
 });
