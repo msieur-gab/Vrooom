@@ -32,16 +32,32 @@ let playgrounds = [];
 let selectedPlayground = null;
 let selectedAvatar = null;
 let pendingCarConfig = null;
+let carSideViewUrl = null;
+let carSounds = { horn: null, engine: null };
 
 // ── DOM refs ──────────────────────────────────
 
 const $ = id => document.getElementById(id);
+
+// ── Sound helper ─────────────────────────────
+
+function playSound(url) {
+  if (!url) return;
+  const a = new Audio(url);
+  a.volume = 0.5;
+  a.play().catch(() => {});
+}
 
 // ── Init ──────────────────────────────────────
 
 async function init() {
   profile = await db.getProfile();
   selectedCar = await db.getSelectedCar();
+
+  // Restore persisted car image and sounds
+  carSideViewUrl = await db.getSetting('carSideViewUrl') || null;
+  const savedSounds = await db.getSetting('carSounds');
+  if (savedSounds) Object.assign(carSounds, savedSounds);
 
   setupAvatarGrid();
   setupCarGrid();
@@ -118,6 +134,7 @@ function setupEventListeners() {
   $('btn-locate').addEventListener('click', relocate);
   $('detail-close').addEventListener('click', closeDetail);
   $('btn-checkin').addEventListener('click', doCheckIn);
+  $('btn-imhere').addEventListener('click', doCheckIn);
   $('btn-route').addEventListener('click', doRoute);
   $('btn-radius').addEventListener('click', toggleRadiusPopover);
   $('radius-slider').addEventListener('input', onRadiusChange);
@@ -201,6 +218,12 @@ async function loadCarFromConfig(configUrl) {
     const config = await res.json();
     pendingCarConfig = config;
 
+    // Extract sounds for map interactions
+    const parts = config.parts || [];
+    const findSound = name => parts.find(p => p.name.toLowerCase() === name)?.soundUrl;
+    carSounds.horn = findSound('roof') || config.defaultClickSound;
+    carSounds.engine = findSound('body') || config.defaultClickSound;
+
     // Save car to DB
     const car = await db.addCar(config.carName || 'My Car', configUrl);
     selectedCar = car;
@@ -210,7 +233,14 @@ async function loadCarFromConfig(configUrl) {
     showScreen('car-onboard');
 
     const viewer = $('onboard-car');
-    if (viewer) viewer.loadCar(config);
+    if (viewer) {
+      await viewer.loadCar(config);
+      carSideViewUrl = await viewer.toSideView();
+    }
+
+    // Persist car image and sounds for next launch
+    await db.setSetting('carSideViewUrl', carSideViewUrl);
+    await db.setSetting('carSounds', carSounds);
   } catch (err) {
     showToast('Failed to load car config');
   }
@@ -309,7 +339,7 @@ async function relocate() {
   try {
     userCoords = await locate();
     map.setView([userCoords.lat, userCoords.lon], 15);
-    placeUser(map, userCoords.lat, userCoords.lon);
+    placeUser(map, userCoords.lat, userCoords.lon, carSideViewUrl, () => playSound(carSounds.horn));
 
     barCount.textContent = 'Searching playgrounds…';
     await searchPlaygrounds();
@@ -382,15 +412,9 @@ function onPlaygroundSelect(playground) {
 
   $('detail-dist').textContent = formatDistance(playground.distance);
 
-  // Enable/disable check-in button based on proximity
-  const btn = $('btn-checkin');
-  if (playground.distance <= 200) {
-    btn.disabled = false;
-    btn.textContent = 'Check In!';
-  } else {
-    btn.disabled = true;
-    btn.textContent = `Get closer (${formatDistance(playground.distance)})`;
-  }
+  // Check-in always enabled — the service does its own GPS + proximity check
+  $('btn-checkin').disabled = false;
+  $('btn-checkin').textContent = "I'm here!";
 
   $('detail-panel').classList.add('visible');
 }
@@ -408,28 +432,32 @@ function closeDetail() {
 }
 
 async function doCheckIn() {
-  if (!selectedPlayground || !profile || !userCoords) return;
+  if (!profile) return;
 
-  const btn = $('btn-checkin');
-  btn.disabled = true;
-  btn.textContent = 'Checking in…';
+  // Disable both check-in buttons during the process
+  const btns = [$('btn-checkin'), $('btn-imhere')].filter(Boolean);
+  btns.forEach(b => { b.disabled = true; b.dataset.prevText = b.textContent; b.textContent = 'Locating…'; });
 
   try {
     const carId = selectedCar?.id || null;
-    const result = await checkIn(profile.id, carId, selectedPlayground, userCoords);
+    const result = await checkIn(profile.id, carId);
 
+    // Close detail panel if open
     closeDetail();
+
+    const placeName = result.place.name || result.place.type;
+    const dist = Math.round(result.place.distance);
 
     if (result.newBadges.length > 0) {
       const names = result.newBadges.map(b => b.title).join(', ');
-      showToast(`🏅 Badge earned: ${names}`);
+      showToast(`Checked in at ${placeName} (${dist}m away) — Badge earned: ${names}`);
     } else {
-      showToast(`Checked in at ${selectedPlayground.name || 'playground'}!`);
+      showToast(`Checked in at ${placeName} (${dist}m away)!`);
     }
   } catch (err) {
     showToast(err.message);
-    btn.disabled = false;
-    btn.textContent = 'Check In!';
+  } finally {
+    btns.forEach(b => { b.disabled = false; b.textContent = b.dataset.prevText || "I'm here!"; });
   }
 }
 
@@ -455,6 +483,7 @@ async function doRoute() {
   const btn = $('btn-route');
   btn.disabled = true;
   btn.textContent = 'Loading…';
+  playSound(carSounds.engine);
 
   try {
     const result = await showRoute(

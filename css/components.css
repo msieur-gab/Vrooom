@@ -180,6 +180,44 @@
   pointer-events: none;
 }
 
+/* ── Check-in FAB ─────────────────────────── */
+
+.checkin-fab {
+  position: fixed;
+  bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 80px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+}
+
+.btn-checkin-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 32px;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  background: var(--accent);
+  border: none;
+  border-radius: 28px;
+  box-shadow: 0 4px 16px rgba(244,84,54,0.4);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+
+.btn-checkin-fab:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(244,84,54,0.3);
+}
+
+.btn-checkin-fab:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ── Locate FAB ────────────────────────────── */
 
 .locate-fab {

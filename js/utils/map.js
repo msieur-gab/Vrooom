@@ -29,7 +29,7 @@ export function initMap(elementId) {
 
 // ── User position ─────────────────────────────
 
-export function placeUser(map, lat, lon) {
+export function placeUser(map, lat, lon, carImageUrl, onTap) {
   if (map._meMarker) {
     map.removeLayer(map._meMarker);
     map.removeLayer(map._mePulse);
@@ -40,18 +40,28 @@ export function placeUser(map, lat, lon) {
     interactive: false
   }).addTo(map);
 
+  // Use car side-view image if available, otherwise default dot
+  const markerHtml = carImageUrl
+    ? `<img src="${carImageUrl}" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">`
+    : `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="6" fill="var(--accent)" stroke="white" stroke-width="3"/>
+      </svg>`;
+
+  const size = carImageUrl ? [40, 40] : [16, 16];
+  const anchor = carImageUrl ? [20, 20] : [8, 8];
+
   map._meMarker = L.marker([lat, lon], {
     icon: L.divIcon({
       className: 'me-marker',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      html: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="8" cy="8" r="6" fill="var(--accent)" stroke="white" stroke-width="3"/>
-      </svg>`
+      iconSize: size,
+      iconAnchor: anchor,
+      html: markerHtml
     }),
-    interactive: false,
+    interactive: !!onTap,
     zIndexOffset: 1000
   }).addTo(map);
+
+  if (onTap) map._meMarker.on('click', onTap);
 }
 
 // ── Playground markers ────────────────────────

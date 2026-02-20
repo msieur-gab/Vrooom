@@ -15,6 +15,11 @@ export function createScene(canvas, bgColor = '#f45436') {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(new THREE.Color(bgColor), 1);
+  // Match A-Frame's tone mapping: no tone mapping, linear output
+  // Three.js r150+ defaults to SRGBColorSpace + ACESFilmic which makes
+  // colors look washed-out / too bright compared to the A-Frame prototype
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   // Scene
   const scene = new THREE.Scene();
@@ -24,11 +29,13 @@ export function createScene(canvas, bgColor = '#f45436') {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
   camera.position.set(2.5, 1.5, 2.5);
 
-  // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  // Lights — intensities calibrated for Three.js r172 physically-based units.
+  // r172 uses SI units (candela/lux) so directional lights need ~Math.PI
+  // multiplier to match older Three.js intensity=1.0 look.
+  const ambient = new THREE.AmbientLight(0xffffff, 1.8);
   scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 3.0);
   keyLight.position.set(-2, 4, 3);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.set(2048, 2048);
@@ -41,11 +48,11 @@ export function createScene(canvas, bgColor = '#f45436') {
   keyLight.shadow.bias = -0.001;
   scene.add(keyLight);
 
-  const fill = new THREE.DirectionalLight(0xf8f4f0, 0.5);
+  const fill = new THREE.DirectionalLight(0xf8f4f0, 1.5);
   fill.position.set(3, 3, -1);
   scene.add(fill);
 
-  const rim = new THREE.DirectionalLight(0xffe8d6, 0.3);
+  const rim = new THREE.DirectionalLight(0xffe8d6, 1.0);
   rim.position.set(0, 2, -4);
   scene.add(rim);
 
