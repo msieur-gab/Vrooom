@@ -2,7 +2,6 @@
  * controls.js — OrbitControls wrapper with constraints, auto-rotate, damping.
  */
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
 
@@ -19,11 +18,7 @@ export function createControls(camera, canvas, opts = {}) {
   controls.dampingFactor = 0.1;
   controls.rotateSpeed = 0.5;
   controls.autoRotate = opts.autoRotate !== false;
-  controls.autoRotateSpeed = 0.4;
-
-  const onChange = opts.onChange || (() => {});
-
-  controls.addEventListener('change', onChange);
+  controls.autoRotateSpeed = 2;
 
   return {
     controls,
@@ -33,12 +28,7 @@ export function createControls(camera, canvas, opts = {}) {
       camera.position.set(2.5, 1.5, 2.5);
       controls.update();
     },
-    setAutoRotate(on) {
-      controls.autoRotate = on;
-    },
-    dispose() {
-      controls.removeEventListener('change', onChange);
-      controls.dispose();
-    }
+    setAutoRotate(on) { controls.autoRotate = on; },
+    dispose() { controls.dispose(); }
   };
 }
