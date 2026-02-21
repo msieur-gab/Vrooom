@@ -14,6 +14,9 @@ export const MILESTONES = [
   { type: 'milestone_50', threshold: 50, title: 'Playground Legend',  description: 'Visit 50 different playgrounds' }
 ];
 
+// ── Regular visitor threshold ─────────────────
+const REGULAR_VISIT_COUNT = 10;
+
 // ── Badge check after each check-in ──────────
 
 export async function checkAndAwardBadges(profileId, playground) {
@@ -30,7 +33,21 @@ export async function checkAndAwardBadges(profileId, playground) {
     });
   }
 
-  // 2. Milestone badges
+  // 2. Regular visitor badge — 10+ visits to the same place
+  const visitCount = await db.getVisitCount(profileId, playground.id);
+  if (visitCount >= REGULAR_VISIT_COUNT) {
+    const hasRegular = await db.hasBadge(profileId, 'regular', playground.id);
+    if (!hasRegular) {
+      const badge = await db.addBadge(profileId, 'regular', playground.id);
+      newBadges.push({
+        ...badge,
+        title: `${playground.name || 'Place'} Regular`,
+        description: `Visited ${playground.name || 'this place'} ${REGULAR_VISIT_COUNT} times!`
+      });
+    }
+  }
+
+  // 3. Milestone badges
   const uniqueCount = await db.getUniquePlaygrounds(profileId);
 
   for (const milestone of MILESTONES) {
@@ -68,6 +85,18 @@ export async function getBadgeCollection(profileId) {
       };
     });
 
+  // Map regular visitor badges
+  const regularBadges = badges
+    .filter(b => b.type === 'regular')
+    .map(b => {
+      const checkIn = checkIns.find(c => c.playgroundId === b.playgroundId);
+      return {
+        ...b,
+        title: `${checkIn?.playgroundName || 'Place'} Regular`,
+        icon: 'regular'
+      };
+    });
+
   // Map milestone badges
   const milestoneBadges = MILESTONES.map(m => {
     const earned = badges.find(b => b.type === m.type);
@@ -84,8 +113,9 @@ export async function getBadgeCollection(profileId) {
 
   return {
     playgrounds: playgroundBadges,
+    regulars: regularBadges,
     milestones: milestoneBadges,
-    totalEarned: playgroundBadges.length + milestoneBadges.filter(m => m.earned).length,
+    totalEarned: playgroundBadges.length + regularBadges.length + milestoneBadges.filter(m => m.earned).length,
     uniquePlaygrounds: playgroundBadges.length
   };
 }
@@ -108,6 +138,19 @@ export function playgroundBadgeSVG(name = 'Playground') {
     <!-- Star -->
     <polygon points="60,20 62,26 68,26 63,30 65,36 60,32 55,36 57,30 52,26 58,26" stroke-width="1"/>
     <text x="60" y="95" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="8" font-weight="500" stroke="none" fill="#2a2520">${displayName}</text>
+  </svg>`;
+}
+
+export function regularBadgeSVG(name = 'Place') {
+  const displayName = name.length > 18 ? name.substring(0, 16) + '…' : name;
+  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2a2520" stroke-width="1.5">
+    <circle cx="60" cy="60" r="56" stroke-width="2"/>
+    <circle cx="60" cy="60" r="50" stroke-dasharray="4 3"/>
+    <!-- Heart -->
+    <path d="M60 85 C40 68 25 55 25 43 C25 33 33 25 43 25 C50 25 56 29 60 35 C64 29 70 25 77 25 C87 25 95 33 95 43 C95 55 80 68 60 85Z" stroke-width="2"/>
+    <!-- 10x label -->
+    <text x="60" y="60" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="14" font-weight="700" stroke="none" fill="#2a2520">10x</text>
+    <text x="60" y="103" text-anchor="middle" font-family="DM Sans, sans-serif" font-size="7" font-weight="500" stroke="none" fill="#2a2520">${displayName}</text>
   </svg>`;
 }
 

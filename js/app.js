@@ -9,7 +9,7 @@ import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
 import { fetchNearby, getCachedNearby } from './services/playground.js';
 import { checkIn } from './services/checkin.js';
-import { getBadgeCollection, playgroundBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
+import { getBadgeCollection, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
 import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute } from './utils/map.js';
 
 // ── Available car configs ─────────────────────
@@ -33,6 +33,7 @@ let selectedPlayground = null;
 let selectedAvatar = null;
 let pendingCarConfig = null;
 let carSideViewUrl = null;
+let carSideProfiles = { left: null, right: null };
 let carSounds = { horn: null, engine: null };
 let garageEngineOn = false;
 let garageLightsOn = false;
@@ -40,6 +41,13 @@ let garageLightsOn = false;
 // ── DOM refs ──────────────────────────────────
 
 const $ = id => document.getElementById(id);
+
+// ── Slider thumb helper ─────────────────────
+
+function applySliderThumb() {
+  const url = carSideProfiles.right;
+  if (url) $('radius-slider').style.setProperty('--slider-thumb', `url(${url})`);
+}
 
 // ── Sound helper ─────────────────────────────
 
@@ -58,6 +66,9 @@ async function init() {
 
   // Restore persisted car image and sounds
   carSideViewUrl = await db.getSetting('carSideViewUrl') || null;
+  const savedProfiles = await db.getSetting('carSideProfiles');
+  if (savedProfiles) Object.assign(carSideProfiles, savedProfiles);
+  applySliderThumb();
   const savedSounds = await db.getSetting('carSounds');
   if (savedSounds) Object.assign(carSounds, savedSounds);
 
@@ -267,10 +278,13 @@ async function loadCarFromConfig(configUrl) {
     if (viewer) {
       await viewer.loadCar(config);
       carSideViewUrl = await viewer.toSideView();
+      carSideProfiles = viewer.toSideProfiles(64) || carSideProfiles;
+      applySliderThumb();
     }
 
     // Persist car image and sounds for next launch
     await db.setSetting('carSideViewUrl', carSideViewUrl);
+    await db.setSetting('carSideProfiles', carSideProfiles);
     await db.setSetting('carSounds', carSounds);
   } catch (err) {
     showToast('Failed to load car config');
@@ -560,6 +574,12 @@ async function renderBadges() {
   for (const m of collection.milestones) {
     const svg = milestoneBadgeSVG(m.title, m.threshold);
     html += `<div class="badge-item ${m.earned ? '' : 'locked'}">${svg}<span class="badge-item-name">${m.title}</span></div>`;
+  }
+
+  // Regular visitor badges
+  for (const r of collection.regulars) {
+    const svg = regularBadgeSVG(r.title);
+    html += `<div class="badge-item">${svg}<span class="badge-item-name">${r.title}</span></div>`;
   }
 
   // Playground badges

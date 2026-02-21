@@ -91,7 +91,7 @@
   <button class="print-btn no-print" onclick="window.print()">Print Badge Sheet</button>
 
   <script type="module">
-    import { getBadgeCollection, playgroundBadgeSVG, milestoneBadgeSVG } from './js/services/badge.js';
+    import { getBadgeCollection, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from './js/services/badge.js';
     import * as db from './js/services/database.js';
 
     async function loadBadges() {
@@ -110,13 +110,18 @@
         html += `<div class="badge-print-cell">${milestoneBadgeSVG(m.title, m.threshold)}</div>`;
       }
 
+      // Regular visitor badges
+      for (const r of collection.regulars) {
+        html += `<div class="badge-print-cell">${regularBadgeSVG(r.title)}</div>`;
+      }
+
       // Playground badges
       for (const p of collection.playgrounds) {
         html += `<div class="badge-print-cell">${playgroundBadgeSVG(p.title)}</div>`;
       }
 
       // Fill empty slots to complete the grid (multiples of 3)
-      const total = collection.milestones.filter(m => m.earned).length + collection.playgrounds.length;
+      const total = collection.milestones.filter(m => m.earned).length + collection.regulars.length + collection.playgrounds.length;
       const remainder = total % 3;
       if (remainder > 0) {
         for (let i = 0; i < 3 - remainder; i++) {

@@ -78,6 +78,12 @@ export async function getUniquePlaygrounds(profileId) {
   return unique.size;
 }
 
+export async function getVisitCount(profileId, playgroundId) {
+  return db.check_ins.where('profileId').equals(profileId)
+    .filter(c => c.playgroundId === playgroundId)
+    .count();
+}
+
 export async function hasCheckedIn(profileId, playgroundId) {
   const count = await db.check_ins
     .where('[profileId+playgroundId]')
