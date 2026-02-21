@@ -95,7 +95,7 @@ function renderCropped(scene, renderer, camera, carGroup, renderSize, pad) {
 
 // ── Side-view snapshot (256px, transparent BG) ──────────
 
-export function sideView(scene, renderer, camera, carGroup, ground, headlightsModule, controls, size = 256) {
+export function sideView(scene, renderer, camera, carGroup, ground, headlightsModule, controls, size = 256, side = 'quarter') {
   const rs = saveState(renderer, camera, scene);
   const savedPos = camera.position.clone();
   const savedTarget = controls.controls.target.clone();
@@ -105,17 +105,20 @@ export function sideView(scene, renderer, camera, carGroup, ground, headlightsMo
   renderer.setClearColor(0x000000, 0);
   const restoreExtras = hideExtras(ground, headlightsModule);
 
-  // Frame from 3/4 perspective (front-quarter, slightly above — fun angle)
   const box = new THREE.Box3().setFromObject(carGroup);
   const center = box.getCenter(new THREE.Vector3());
   const sphere = box.getBoundingSphere(new THREE.Sphere());
   const fov = camera.fov * (Math.PI / 180);
   const dist = sphere.radius / Math.sin(fov / 2) * 1.1;
-  camera.position.set(
-    center.x + dist * 0.7,   // offset right
-    center.y + dist * 0.4,   // above
-    center.z + dist * 0.7    // offset front
-  );
+
+  if (side === 'left') {
+    camera.position.set(center.x - dist, center.y + dist * 0.05, center.z);
+  } else if (side === 'right') {
+    camera.position.set(center.x + dist, center.y + dist * 0.05, center.z);
+  } else {
+    // 3/4 perspective (front-quarter, slightly above)
+    camera.position.set(center.x + dist * 0.7, center.y + dist * 0.4, center.z + dist * 0.7);
+  }
   controls.controls.target.copy(center);
   controls.controls.update();
 

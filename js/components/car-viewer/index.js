@@ -8,7 +8,8 @@
  *
  * Public API:
  *   loadCar(config)       — load a car config object
- *   toSideView()          — 256px side-view PNG data URL
+ *   toSideView()          — 256px 3/4 view PNG data URL
+ *   toSideProfiles(size)  — { left, right } pure side-view PNGs
  *   toOutline()           — 2048px coloring book PNG data URL
  *   resetView()           — reset camera
  *   startEngine()         — engine idle vibration + sound
@@ -190,6 +191,16 @@ class CarViewer extends HTMLElement {
     if (!this._carGroup) return null;
     return sideView(this._scene, this._renderer, this._camera,
       this._carGroup, this._ground, this._headlights, this._controls, 256);
+  }
+
+  toSideProfiles(size = 64) {
+    if (!this._carGroup) return null;
+    const args = [this._scene, this._renderer, this._camera,
+      this._carGroup, this._ground, this._headlights, this._controls, size];
+    return {
+      left: sideView(...args, 'left'),
+      right: sideView(...args, 'right')
+    };
   }
 
   toOutline() {

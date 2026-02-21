@@ -213,20 +213,20 @@
 
 .radius-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--slider-thumb, var(--accent)) center / contain no-repeat;
   border: 3px solid white;
   box-shadow: 0 1px 6px rgba(244,84,54,0.35);
   cursor: pointer;
 }
 
 .radius-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--slider-thumb, var(--accent)) center / contain no-repeat;
   border: 3px solid white;
   box-shadow: 0 1px 6px rgba(244,84,54,0.35);
   cursor: pointer;
