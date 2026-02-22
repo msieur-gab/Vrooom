@@ -392,6 +392,113 @@
   -webkit-box-orient: vertical;
 }
 
+/* ── Connect to Print button ─────────────── */
+
+.connect-print-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 400px;
+  margin: 20px auto 0;
+  padding: 14px 24px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.connect-print-btn:active {
+  background: var(--accent-glow);
+}
+
+/* ── Scanner modal ──────────────────────── */
+
+.scanner-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scanner-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.scanner-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanner-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 20px;
+}
+
+.scanner-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: var(--radius-round);
+}
+
+.scanner-status {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scanner-status.sending {
+  color: var(--accent);
+}
+
+.scanner-status.done {
+  color: #2d8a4e;
+}
+
+.scanner-status.error {
+  color: var(--danger);
+}
+
 /* ── Garage screen ─────────────────────────── */
 
 .garage-screen {

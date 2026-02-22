@@ -595,6 +595,112 @@ async function renderBadges() {
   grid.innerHTML = html;
 }
 
+// ── Connect to Print ─────────────────────────
+
+$('btn-connect-print').addEventListener('click', openPrintModal);
+$('btn-scanner-close').addEventListener('click', closePrintModal);
+$('btn-start-scan').addEventListener('click', startScan);
+$('btn-scanner-back').addEventListener('click', backToIntro);
+
+let scannerModule = null; // lazy-loaded
+
+function openPrintModal() {
+  $('scanner-step-intro').hidden = false;
+  $('scanner-step-scan').hidden = true;
+  $('scanner-modal').classList.add('visible');
+}
+
+function closePrintModal() {
+  const scanner = $('peer-scanner');
+  if (scanner.stop) scanner.stop();
+  $('scanner-modal').classList.remove('visible');
+}
+
+function backToIntro() {
+  const scanner = $('peer-scanner');
+  if (scanner.stop) scanner.stop();
+  $('scanner-step-scan').hidden = true;
+  $('scanner-step-intro').hidden = false;
+}
+
+async function startScan() {
+  const status = $('scanner-status');
+  status.textContent = '';
+  status.className = 'scanner-status';
+
+  // Lazy-load peer-drop modules
+  if (!scannerModule) {
+    try {
+      await import('../site/lib/peer-drop/peer-scanner.js');
+      scannerModule = await import('../site/lib/peer-drop/peer-bridge.js');
+    } catch (err) {
+      status.textContent = 'Failed to load connection module';
+      status.className = 'scanner-status error';
+      return;
+    }
+  }
+
+  // Switch to scanner step
+  $('scanner-step-intro').hidden = true;
+  $('scanner-step-scan').hidden = false;
+
+  const scanner = $('peer-scanner');
+  scanner.addEventListener('scan-success', onScanSuccess, { once: true });
+  scanner.addEventListener('scan-error', onScanError, { once: true });
+  scanner.start();
+}
+
+async function onScanSuccess(e) {
+  const status = $('scanner-status');
+  const sessionId = scannerModule.PeerBridge.sessionFrom(e.detail.data);
+
+  if (!sessionId) {
+    status.textContent = 'Invalid QR code — not a Vrooom connect link';
+    status.className = 'scanner-status error';
+    return;
+  }
+
+  status.textContent = 'Connecting\u2026';
+  status.className = 'scanner-status sending';
+
+  const bridge = new scannerModule.PeerBridge();
+  bridge.join(sessionId);
+
+  bridge.addEventListener('connected', async () => {
+    status.textContent = 'Sending badges\u2026';
+
+    const collection = await getBadgeCollection(profile.id);
+    const payload = {
+      profile: { name: profile.name, avatar: profile.avatar },
+      badges: collection
+    };
+
+    bridge.send(payload);
+
+    // Brief delay so the host receives before we disconnect
+    setTimeout(() => {
+      bridge.disconnect('done');
+      status.textContent = 'Badges sent! You can print from the computer now.';
+      status.className = 'scanner-status done';
+
+      // Auto-close after a moment
+      setTimeout(() => closePrintModal(), 2500);
+    }, 500);
+  });
+
+  bridge.addEventListener('error', (err) => {
+    console.error('PeerBridge error:', err.detail);
+    status.textContent = 'Connection failed — try again';
+    status.className = 'scanner-status error';
+  });
+}
+
+function onScanError(e) {
+  const status = $('scanner-status');
+  status.textContent = e.detail.error;
+  status.className = 'scanner-status error';
+}
+
 // ── Garage screen ─────────────────────────────
 
 async function updateGarageScreen() {

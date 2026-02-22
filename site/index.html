@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vrooom — Discover playgrounds with your wooden car</title>
+  <meta name="description" content="A screen-free adventure for curious kids. Scan NFC tags, explore the map, and collect printable badges with your wooden toy car.">
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav">
+    <a href="index.html" class="logo">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <rect width="512" height="512" rx="96" fill="#f45436"/>
+        <g transform="translate(256,256) scale(2.5)" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M-60 10 L-50 -15 L-25 -30 L30 -30 L50 -15 L60 10 L60 25 L-60 25 Z"/>
+          <circle cx="-35" cy="25" r="12" fill="white"/>
+          <circle cx="35" cy="25" r="12" fill="white"/>
+          <circle cx="-35" cy="25" r="5" fill="#f45436"/>
+          <circle cx="35" cy="25" r="5" fill="#f45436"/>
+          <line x1="-45" y1="-5" x2="-30" y2="-5"/>
+          <line x1="30" y1="-5" x2="45" y2="-5"/>
+        </g>
+      </svg>
+      <span>Vrooom</span>
+    </a>
+    <a href="connect.html" class="nav-link">Connect</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Vrooom!</h1>
+    <p class="subtitle">Discover playgrounds with your wooden car</p>
+    <svg class="hero-icon" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2a2520" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Road -->
+      <line x1="0" y1="130" x2="200" y2="130" stroke="#e5e0d8" stroke-width="3" stroke-dasharray="8 6"/>
+      <!-- Car body -->
+      <path d="M30 100 L45 60 L75 40 L155 40 L175 60 L180 100 L180 115 L20 115 L20 100 Z" fill="#f45436" stroke="#2a2520"/>
+      <!-- Windows -->
+      <path d="M55 65 L70 45 L110 45 L110 65 Z" fill="white" stroke="#2a2520" stroke-width="1.5"/>
+      <path d="M115 45 L150 45 L165 65 L115 65 Z" fill="white" stroke="#2a2520" stroke-width="1.5"/>
+      <!-- Headlight -->
+      <rect x="172" y="80" width="10" height="12" rx="3" fill="#ffd666" stroke="#2a2520" stroke-width="1.5"/>
+      <!-- Wheels -->
+      <circle cx="60" cy="118" r="18" fill="white" stroke="#2a2520" stroke-width="2.5"/>
+      <circle cx="60" cy="118" r="8" fill="#f45436" stroke="#2a2520" stroke-width="1.5"/>
+      <circle cx="150" cy="118" r="18" fill="white" stroke="#2a2520" stroke-width="2.5"/>
+      <circle cx="150" cy="118" r="8" fill="#f45436" stroke="#2a2520" stroke-width="1.5"/>
+      <!-- Speed lines -->
+      <line x1="5" y1="80" x2="15" y2="80" stroke="#ccc" stroke-width="2"/>
+      <line x1="0" y1="95" x2="12" y2="95" stroke="#ccc" stroke-width="2"/>
+      <line x1="3" y1="110" x2="10" y2="110" stroke="#ccc" stroke-width="2"/>
+    </svg>
+  </section>
+
+  <!-- How It Works -->
+  <section class="section">
+    <h2>How It Works</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="4" width="24" height="32" rx="4" stroke="#2a2520" stroke-width="2"/>
+            <path d="M15 20 L20 20 M20 15 L20 25" stroke="#f45436" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="20" cy="20" r="8" stroke="#f45436" stroke-width="1.5" stroke-dasharray="3 2"/>
+          </svg>
+        </div>
+        <h3>Scan your car</h3>
+        <p>Tap the NFC tag on your wooden car to open the app</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="18" r="12" stroke="#2a2520" stroke-width="2"/>
+            <path d="M20 30 L20 36" stroke="#2a2520" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="20" cy="18" r="3" fill="#f45436"/>
+            <circle cx="14" cy="14" r="1.5" fill="#f45436" opacity="0.4"/>
+            <circle cx="26" cy="22" r="1.5" fill="#f45436" opacity="0.4"/>
+          </svg>
+        </div>
+        <h3>Explore the map</h3>
+        <p>Find nearby playgrounds and check in when you arrive</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 6 L26 16 L37 18 L29 26 L31 37 L20 31 L9 37 L11 26 L3 18 L14 16 Z" stroke="#2a2520" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="20" cy="22" r="5" stroke="#f45436" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <h3>Collect badges</h3>
+        <p>Earn badges for every playground you discover</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Benefits -->
+  <section class="section">
+    <h2>Why Families Love It</h2>
+    <ul class="benefits-list">
+      <li>Anti-screen-time by design &mdash; the adventure happens outside</li>
+      <li>No accounts, no cloud &mdash; everything stays on your phone</li>
+      <li>Badges you print and color &mdash; real trophies, not pixels</li>
+      <li>The car is your kid's identity &mdash; no passwords, just play</li>
+    </ul>
+  </section>
+
+  <!-- Print CTA -->
+  <section class="section">
+    <div class="cta-section">
+      <h2>Print Your Badges</h2>
+      <p>Connect your phone to print badge sheets on any computer</p>
+      <a href="connect.html" class="btn-primary">Connect Now &rarr;</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    Made with &hearts; for curious kids and their families
+  </footer>
+
+</body>
+</html>

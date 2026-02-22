@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vrooom — Connect &amp; Print</title>
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="site-nav no-print">
+    <a href="index.html" class="logo">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <rect width="512" height="512" rx="96" fill="#f45436"/>
+        <g transform="translate(256,256) scale(2.5)" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M-60 10 L-50 -15 L-25 -30 L30 -30 L50 -15 L60 10 L60 25 L-60 25 Z"/>
+          <circle cx="-35" cy="25" r="12" fill="white"/>
+          <circle cx="35" cy="25" r="12" fill="white"/>
+          <circle cx="-35" cy="25" r="5" fill="#f45436"/>
+          <circle cx="35" cy="25" r="5" fill="#f45436"/>
+          <line x1="-45" y1="-5" x2="-30" y2="-5"/>
+          <line x1="30" y1="-5" x2="45" y2="-5"/>
+        </g>
+      </svg>
+      <span>Vrooom</span>
+    </a>
+    <a href="index.html" class="nav-link">Home</a>
+  </nav>
+
+  <!-- State 1: QR session -->
+  <div id="connect-state" class="connect-container">
+    <h1>Connect Your Phone</h1>
+    <p class="connect-subtitle">Beam your badges from phone to computer for printing</p>
+
+    <div class="qr-wrapper">
+      <peer-qrcode id="qr" size="220"></peer-qrcode>
+      <div class="session-id" id="session-label"></div>
+      <p class="qr-instructions">
+        Open <strong>Vrooom</strong> on your phone &rarr; tap <strong>Connect</strong> &rarr; scan this code
+      </p>
+    </div>
+
+    <p class="connect-status" id="status-text">Waiting for connection&hellip;</p>
+  </div>
+
+  <!-- State 2: Badge sheet (hidden until data arrives) -->
+  <div id="badge-state" class="connect-container" style="display: none;">
+    <div class="badge-sheet-header">
+      <h1 id="sheet-title">Badge Sheet</h1>
+    </div>
+    <p class="badge-sheet-subtitle">Cut along the dotted lines, color in, and glue into your travel passport!</p>
+
+    <div class="badge-print-grid" id="print-grid"></div>
+
+    <button class="print-btn no-print" onclick="window.print()">Print Badge Sheet</button>
+
+    <p class="no-print" style="text-align:center; margin-top:16px;">
+      <a href="connect.html" style="color: var(--muted); font-size: 14px;">Start a new session</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import { PeerBridge } from './lib/peer-drop/peer-bridge.js';
+    import './lib/peer-drop/peer-qrcode.js';
+    import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../js/services/badge-svg.js';
+
+    const bridge = new PeerBridge();
+    const connectEl = document.getElementById('connect-state');
+    const badgeEl = document.getElementById('badge-state');
+    const statusText = document.getElementById('status-text');
+    const qrEl = document.getElementById('qr');
+    const sessionLabel = document.getElementById('session-label');
+
+    // Start hosting
+    const { sessionId } = bridge.host();
+
+    bridge.addEventListener('ready', () => {
+      const connectUrl = bridge.sessionUrl(location.href);
+      qrEl.value = connectUrl;
+      sessionLabel.textContent = sessionId;
+    });
+
+    bridge.addEventListener('connected', () => {
+      statusText.textContent = 'Phone connected! Waiting for badge data\u2026';
+      statusText.classList.add('connected');
+    });
+
+    bridge.addEventListener('data', (e) => {
+      renderBadges(e.detail.data);
+    });
+
+    bridge.addEventListener('disconnected', () => {
+      // Only show disconnect if we haven't received data yet
+      if (badgeEl.style.display === 'none') {
+        statusText.textContent = 'Connection lost. Refresh to try again.';
+        statusText.classList.remove('connected');
+      }
+    });
+
+    bridge.addEventListener('error', (e) => {
+      console.error('PeerBridge error:', e.detail);
+      statusText.textContent = 'Connection error. Refresh to try again.';
+    });
+
+    // Render badge sheet from received data
+    function renderBadges(data) {
+      const { profile, badges } = data;
+
+      // Update title
+      const title = profile?.name
+        ? `${profile.name}'s Badge Sheet`
+        : 'Badge Sheet';
+      document.getElementById('sheet-title').textContent = title;
+
+      const grid = document.getElementById('print-grid');
+      let html = '';
+
+      // Earned milestones
+      if (badges.milestones) {
+        for (const m of badges.milestones.filter(m => m.earned)) {
+          html += `<div class="badge-print-cell">${milestoneBadgeSVG(m.title, m.threshold)}</div>`;
+        }
+      }
+
+      // Regular visitor badges
+      if (badges.regulars) {
+        for (const r of badges.regulars) {
+          html += `<div class="badge-print-cell">${regularBadgeSVG(r.title)}</div>`;
+        }
+      }
+
+      // Playground badges
+      if (badges.playgrounds) {
+        for (const p of badges.playgrounds) {
+          html += `<div class="badge-print-cell">${playgroundBadgeSVG(p.title)}</div>`;
+        }
+      }
+
+      // Fill empty slots to complete the grid row
+      const total = (badges.milestones?.filter(m => m.earned).length || 0)
+        + (badges.regulars?.length || 0)
+        + (badges.playgrounds?.length || 0);
+
+      const remainder = total % 3;
+      if (remainder > 0) {
+        for (let i = 0; i < 3 - remainder; i++) {
+          html += '<div class="badge-print-cell empty"></div>';
+        }
+      }
+
+      if (total === 0) {
+        html = '<p style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px;">No badges earned yet. Go explore some playgrounds!</p>';
+      }
+
+      grid.innerHTML = html;
+
+      // Switch states
+      connectEl.style.display = 'none';
+      badgeEl.style.display = 'block';
+    }
+
+    // Expose for console testing
+    window.renderBadges = renderBadges;
+  </script>
+
+</body>
+</html>

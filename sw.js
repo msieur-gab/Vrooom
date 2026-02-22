@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v7';
+const CACHE_NAME = 'vrooom-v9';
 
 const PRECACHE = [
   './',
@@ -88,7 +88,7 @@ self.addEventListener('fetch', event => {
     caches.match(event.request)
       .then(cached => cached || fetch(event.request)
         .then(res => {
-          if (res.ok) {
+          if (res.ok && res.status !== 206) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
