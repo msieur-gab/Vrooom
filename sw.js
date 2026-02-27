@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v9';
+const CACHE_NAME = 'vrooom-v10';
 
 const PRECACHE = [
   './',
@@ -12,6 +12,9 @@ const PRECACHE = [
   './css/components.css',
   './css/map.css',
   './js/app.js',
+  './js/lib/pwa-lifecycle.js',
+  './js/lib/pwa-install-overlay.js',
+  './js/lib/pwa-pulse.js',
   './js/components/car-viewer/index.js',
   './js/components/car-viewer/scene.js',
   './js/components/car-viewer/car-loader.js',
@@ -34,13 +37,17 @@ const PRECACHE = [
   './manifest.json'
 ];
 
-// Install — precache shell
+// Install — precache shell (wait for SKIP_WAITING message from overlay)
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
   );
+});
+
+// Message handler — controlled update via pwa-install-overlay
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // Activate — clean old caches

@@ -285,11 +285,30 @@
   <script type="module" src="./js/components/car-viewer/index.js"></script>
   <script type="module" src="./js/app.js"></script>
 
-  <!-- Service Worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
+  <!-- PWA lifecycle: install overlay + telemetry -->
+  <pwa-install-overlay style="
+    --pwa-accent: #f45436;
+    --pwa-font: 'DM Sans', system-ui, sans-serif;
+    --pwa-card-radius: 14px;
+  "></pwa-install-overlay>
+  <script type="module">
+    import { PWALifecycle } from './js/lib/pwa-lifecycle.js';
+    import { PWAPulse } from './js/lib/pwa-pulse.js';
+    import './js/lib/pwa-install-overlay.js';
+
+    const pwa = new PWALifecycle({ swPath: './sw.js' });
+    const pulse = new PWAPulse({
+      app: 'vrooom',
+      version: '1.0.0',
+      endpoint: 'https://pwa-pulse.netlify.app/.netlify/functions/pulse',
+    });
+
+    document.querySelector('pwa-install-overlay').lifecycle = pwa;
+
+    pwa.on('installed', () => pulse.ping('install'));
+    pwa.on('updateApplied', () => pulse.ping('update'));
+    if (pwa.isInstalled) pulse.ping('launch');
+    else pulse.ping('visit');
   </script>
 
 </body>

@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vrooom — Places Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    --bg: #f5f3ef;
+    --fg: #2a2520;
+    --muted: #9a948b;
+    --accent: #f45436;
+    --accent-soft: rgba(244,84,54,0.1);
+    --surface: rgba(255,255,255,0.92);
+    --surface-border: rgba(0,0,0,0.06);
+    --surface-shadow: 0 2px 20px rgba(0,0,0,0.08);
+    --glass: rgba(255,255,255,0.82);
+    --glass-blur: blur(20px);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --font: 'DM Sans', -apple-system, system-ui, sans-serif;
+
+    --c-playground: #f45436;
+    --c-park: #3a9a5c;
+    --c-pool: #2b7abf;
+  }
+
+  html { font-size: 15px; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* ── Layout ─────────────────────────────── */
+
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    grid-template-rows: auto 1fr;
+    height: 100dvh;
+  }
+
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-border);
+    z-index: 500;
+  }
+
+  header h1 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  header .subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .map-col { position: relative; }
+
+  #map {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  /* radius ring overlay */
+  .radius-ring {
+    border: 2px dashed var(--accent);
+    border-radius: 50%;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--surface-border);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* ── Controls ───────────────────────────── */
+
+  .controls {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-bottom: 1px solid var(--surface-border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .control-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    min-width: 52px;
+  }
+
+  /* type toggles */
+  .type-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 20px;
+    border: 1.5px solid var(--surface-border);
+    background: white;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .type-toggle input { display: none; }
+
+  .type-toggle .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .type-toggle.active { border-color: currentColor; }
+  .type-toggle.active .dot { transform: scale(1.3); }
+
+  .type-toggle[data-type="playground"] { --tc: var(--c-playground); }
+  .type-toggle[data-type="park"]       { --tc: var(--c-park); }
+  .type-toggle[data-type="pool"]       { --tc: var(--c-pool); }
+
+  .type-toggle .dot { background: var(--tc); }
+  .type-toggle.active { color: var(--tc); border-color: var(--tc); background: color-mix(in srgb, var(--tc) 6%, white); }
+
+  .type-toggle .count {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.6;
+    min-width: 14px;
+    text-align: center;
+  }
+
+  /* access filter pills */
+  .access-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1.5px solid var(--surface-border);
+    background: white;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    user-select: none;
+    color: var(--muted);
+  }
+
+  .access-pill.active {
+    border-color: var(--fg);
+    color: var(--fg);
+    background: color-mix(in srgb, var(--fg) 5%, white);
+  }
+
+  .access-pill .pill-count {
+    font-size: 0.68rem;
+    font-weight: 600;
+    opacity: 0.5;
+  }
+
+  .access-pill .pill-icon {
+    font-size: 0.72rem;
+  }
+
+  /* radius slider */
+  .radius-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .radius-group input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+
+  .radius-val {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--fg);
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* coords row */
+  .coord-input {
+    width: 105px;
+    padding: 5px 8px;
+    border: 1.5px solid var(--surface-border);
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    background: white;
+    color: var(--fg);
+    transition: border-color 0.2s;
+  }
+
+  .coord-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .btn {
+    padding: 7px 18px;
+    border: none;
+    border-radius: 20px;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    padding: 7px 10px;
+  }
+
+  .btn-ghost:hover { color: var(--fg); }
+
+  /* ── Stats bar ──────────────────────────── */
+
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 18px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    border-bottom: 1px solid var(--surface-border);
+    background: color-mix(in srgb, var(--bg) 60%, white);
+    flex-shrink: 0;
+  }
+
+  .stats-bar strong { color: var(--fg); font-weight: 600; }
+
+  .stats-bar .sep { width: 1px; height: 14px; background: var(--surface-border); }
+
+  /* ── Results list ───────────────────────── */
+
+  .results {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 0;
+  }
+
+  .results::-webkit-scrollbar { width: 5px; }
+  .results::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 10px; }
+
+  .result-item {
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+  }
+
+  .result-item:hover { background: rgba(0,0,0,0.025); }
+  .result-item.highlighted { background: var(--accent-soft); }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result-type-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .result-name {
+    flex: 1;
+    font-size: 0.88rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .result-name.unnamed { font-style: italic; color: var(--muted); }
+
+  .result-type-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .result-access {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .result-access.access-public     { background: #e8f5e9; color: #2e7d32; }
+  .result-access.access-restricted  { background: #fce4ec; color: #c62828; }
+  .result-access.access-limited    { background: #fff3e0; color: #e65100; }
+  .result-access.access-untagged   { background: rgba(0,0,0,0.04); color: var(--muted); }
+
+  .result-dist {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 500;
+    flex-shrink: 0;
+    min-width: 48px;
+    text-align: right;
+  }
+
+  .result-tags {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+  }
+
+  .result-item.expanded .result-tags {
+    max-height: 600px;
+    padding-top: 10px;
+  }
+
+  .tags-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 0.76rem;
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.025);
+    border-radius: 8px;
+  }
+
+  .tag-key {
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .tag-val {
+    color: var(--fg);
+    word-break: break-word;
+  }
+
+  .tag-val a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .tag-val a:hover { text-decoration: underline; }
+
+  .osm-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-decoration: none;
+    opacity: 0.7;
+  }
+
+  .osm-link:hover { opacity: 1; text-decoration: underline; }
+
+  /* ── Loading / empty ────────────────────── */
+
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(245,243,239,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 400;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+
+  .loading-overlay.visible { opacity: 1; pointer-events: auto; }
+
+  .loader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--surface-shadow);
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid var(--surface-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    text-align: center;
+    gap: 6px;
+  }
+
+  .empty-state .icon { font-size: 2rem; opacity: 0.4; }
+  .empty-state p { font-size: 0.85rem; }
+
+  /* ── Map markers ────────────────────────── */
+
+  .place-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .place-marker svg { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); }
+
+  .user-marker {
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+
+  .user-pulse {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(244,84,54,0.12);
+    animation: pulse-ring 2s ease-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%   { transform: scale(0.6); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  /* ── Leaflet overrides ──────────────────── */
+
+  .leaflet-control-attribution {
+    font-size: 10px !important;
+    background: rgba(255,255,255,0.75) !important;
+  }
+
+  /* ── Responsive ─────────────────────────── */
+
+  @media (max-width: 860px) {
+    .shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 50dvh 1fr;
+    }
+
+    .sidebar { border-left: none; border-top: 1px solid var(--surface-border); }
+
+    .controls { padding: 12px 14px; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <h1><span>Vrooom</span> Places Explorer</h1>
+    <span class="subtitle">Overpass API workbench — fine-tune what kids see</span>
+  </header>
+
+  <div class="map-col">
+    <div id="map"></div>
+    <div class="loading-overlay" id="mapLoading">
+      <div class="loader"><div class="spinner"></div>Querying Overpass&hellip;</div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="controls">
+      <div class="control-row">
+        <span class="control-label">Types</span>
+        <label class="type-toggle active" data-type="playground">
+          <input type="checkbox" checked>
+          <span class="dot"></span>
+          Playground
+          <span class="count" id="countPlayground">0</span>
+        </label>
+        <label class="type-toggle active" data-type="park">
+          <input type="checkbox" checked>
+          <span class="dot"></span>
+          Park
+          <span class="count" id="countPark">0</span>
+        </label>
+        <label class="type-toggle active" data-type="pool">
+          <input type="checkbox" checked>
+          <span class="dot"></span>
+          Pool
+          <span class="count" id="countPool">0</span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Access</span>
+        <div class="access-pill active" data-access="all">
+          <span>All</span>
+          <span class="pill-count" id="countAll">0</span>
+        </div>
+        <div class="access-pill" data-access="public">
+          <span class="pill-icon">&#9678;</span>
+          <span>Public</span>
+          <span class="pill-count" id="countPublic">0</span>
+        </div>
+        <div class="access-pill" data-access="restricted">
+          <span class="pill-icon">&#9949;</span>
+          <span>Restricted</span>
+          <span class="pill-count" id="countRestricted">0</span>
+        </div>
+        <div class="access-pill" data-access="untagged">
+          <span class="pill-icon">?</span>
+          <span>Untagged</span>
+          <span class="pill-count" id="countUntagged">0</span>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Radius</span>
+        <div class="radius-group">
+          <input type="range" id="radius" min="200" max="3000" step="100" value="1500">
+          <span class="radius-val" id="radiusVal">1500 m</span>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Coords</span>
+        <input class="coord-input" type="text" id="inputLat" placeholder="Latitude">
+        <input class="coord-input" type="text" id="inputLon" placeholder="Longitude">
+        <button class="btn btn-primary" id="btnSearch">Search</button>
+        <button class="btn btn-ghost" id="btnLocate" title="Use my location">&#8982;</button>
+      </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar">
+      <span>Ready — set coordinates and search</span>
+    </div>
+
+    <div class="results" id="resultsList">
+      <div class="empty-state">
+        <div class="icon">&#x1F50D;</div>
+        <p>Search to see nearby places</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // ── Config ──────────────────────────────────
+
+  const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  ];
+
+  const MUNICH = { lat: 48.137, lon: 11.575 };
+
+  const TYPE_CONFIG = {
+    playground:    { color: '#f45436', label: 'Playground', icon: 'M14 2C14 2 2 10 2 17a12 12 0 0 0 24 0C26 10 14 2 14 2z' },
+    park:          { color: '#3a9a5c', label: 'Park',       icon: 'M14 2C14 2 2 10 2 17a12 12 0 0 0 24 0C26 10 14 2 14 2z' },
+    swimming_pool: { color: '#2b7abf', label: 'Pool',       icon: 'M14 2C14 2 2 10 2 17a12 12 0 0 0 24 0C26 10 14 2 14 2z' }
+  };
+
+  const TYPE_SYMBOLS = {
+    playground: '\u25B2',    // triangle
+    park: '\u25CF',          // circle
+    swimming_pool: '\u25A0'  // square
+  };
+
+  // ── Access classification ─────────────────────
+
+  const ACCESS_PUBLIC     = ['yes', 'public', 'permissive'];
+  const ACCESS_RESTRICTED = ['private', 'no', 'customers', 'permit', 'members'];
+  const ACCESS_LIMITED    = ['destination', 'delivery', 'designated'];
+
+  function classifyAccess(tags) {
+    const val = (tags.access || '').toLowerCase().trim();
+    if (!val) return 'untagged';
+    if (ACCESS_PUBLIC.includes(val))     return 'public';
+    if (ACCESS_RESTRICTED.includes(val)) return 'restricted';
+    if (ACCESS_LIMITED.includes(val))    return 'limited';
+    return 'public'; // unknown values treated as public
+  }
+
+  const ACCESS_LABELS = {
+    public:     'Public',
+    restricted: 'Restricted',
+    limited:    'Limited',
+    untagged:   'Untagged'
+  };
+
+  // ── State ───────────────────────────────────
+
+  let map, markersLayer, radiusCircle, userMarker, userPulse;
+  let allResults = [];
+  let activeTypes = new Set(['playground', 'park', 'swimming_pool']);
+  let activeAccess = 'all'; // 'all' | 'public' | 'restricted' | 'untagged'
+  let highlightedId = null;
+
+  // ── DOM refs ────────────────────────────────
+
+  const $ = id => document.getElementById(id);
+  const mapLoading   = $('mapLoading');
+  const inputLat     = $('inputLat');
+  const inputLon     = $('inputLon');
+  const radiusSlider = $('radius');
+  const radiusVal    = $('radiusVal');
+  const btnSearch    = $('btnSearch');
+  const btnLocate    = $('btnLocate');
+  const statsBar     = $('statsBar');
+  const resultsList  = $('resultsList');
+
+  // ── Init ────────────────────────────────────
+
+  function init() {
+    initMap();
+    initControls();
+    geolocate();
+  }
+
+  function initMap() {
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView([MUNICH.lat, MUNICH.lon], 15);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://openstreetmap.org/copyright">OSM</a> &middot; <a href="https://carto.com/">CARTO</a>'
+    }).addTo(map);
+
+    markersLayer = L.layerGroup().addTo(map);
+
+    // Click on map to move search center
+    map.on('click', e => {
+      inputLat.value = e.latlng.lat.toFixed(6);
+      inputLon.value = e.latlng.lng.toFixed(6);
+      placeUserMarker(e.latlng.lat, e.latlng.lng);
+      updateRadiusCircle();
+    });
+  }
+
+  function initControls() {
+    // Type toggles
+    document.querySelectorAll('.type-toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const cb = toggle.querySelector('input');
+        cb.checked = !cb.checked;
+        toggle.classList.toggle('active', cb.checked);
+
+        const typeMap = { playground: 'playground', park: 'park', pool: 'swimming_pool' };
+        const type = typeMap[toggle.dataset.type];
+
+        if (cb.checked) activeTypes.add(type);
+        else activeTypes.delete(type);
+
+        renderFiltered();
+      });
+    });
+
+    // Access filter pills
+    document.querySelectorAll('.access-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.access-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeAccess = pill.dataset.access;
+        renderFiltered();
+      });
+    });
+
+    // Radius slider
+    radiusSlider.addEventListener('input', () => {
+      radiusVal.textContent = radiusSlider.value + ' m';
+      updateRadiusCircle();
+    });
+
+    // Search button
+    btnSearch.addEventListener('click', doSearch);
+
+    // Locate button
+    btnLocate.addEventListener('click', geolocate);
+
+    // Enter key on coord inputs
+    inputLat.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+    inputLon.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  }
+
+  // ── Geolocation ─────────────────────────────
+
+  function geolocate() {
+    if (!('geolocation' in navigator)) {
+      setCoords(MUNICH.lat, MUNICH.lon);
+      doSearch();
+      return;
+    }
+
+    showLoading('Getting location\u2026');
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setCoords(pos.coords.latitude, pos.coords.longitude);
+        hideLoading();
+        doSearch();
+      },
+      () => {
+        setCoords(MUNICH.lat, MUNICH.lon);
+        hideLoading();
+        doSearch();
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  }
+
+  function setCoords(lat, lon) {
+    inputLat.value = lat.toFixed(6);
+    inputLon.value = lon.toFixed(6);
+    map.setView([lat, lon], 15);
+    placeUserMarker(lat, lon);
+    updateRadiusCircle();
+  }
+
+  // ── Search ──────────────────────────────────
+
+  async function doSearch() {
+    const lat = parseFloat(inputLat.value);
+    const lon = parseFloat(inputLon.value);
+    const radius = parseInt(radiusSlider.value);
+
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    placeUserMarker(lat, lon);
+    updateRadiusCircle();
+    map.setView([lat, lon], radiusToZoom(radius));
+
+    showLoading('Querying Overpass\u2026');
+
+    try {
+      const elements = await queryOverpass(lat, lon, radius);
+      allResults = normalize(elements, lat, lon);
+      renderFiltered();
+    } catch (err) {
+      statsBar.innerHTML = `<strong style="color:var(--accent)">Error:</strong> ${err.message}`;
+      resultsList.innerHTML = `<div class="empty-state"><div class="icon">&#x26A0;</div><p>${err.message}</p></div>`;
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function queryOverpass(lat, lon, radius) {
+    const query = `
+      [out:json][timeout:20];
+      (
+        nwr["leisure"~"^(playground|park|swimming_pool)$"](around:${radius},${lat},${lon});
+        nwr["amenity"="swimming_pool"](around:${radius},${lat},${lon});
+      );
+      out center body;
+    `;
+
+    const body = 'data=' + encodeURIComponent(query);
+    let lastErr;
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          body,
+          signal: AbortSignal.timeout(15000)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return data.elements || [];
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    throw new Error(`All Overpass endpoints failed: ${lastErr?.message}`);
+  }
+
+  // ── Normalize ───────────────────────────────
+
+  function normalize(elements, userLat, userLon) {
+    const seen = new Set();
+
+    return elements
+      .map(el => {
+        const lat = el.center?.lat ?? el.lat;
+        const lon = el.center?.lon ?? el.lon;
+        if (!lat || !lon) return null;
+
+        const tags = el.tags || {};
+        const type = tags.leisure || tags.amenity || 'unknown';
+
+        const key = `${type}_${lat.toFixed(5)}_${lon.toFixed(5)}`;
+        if (seen.has(key)) return null;
+        seen.add(key);
+
+        return {
+          id: el.id,
+          osmType: el.type,
+          type,
+          access: classifyAccess(tags),
+          accessRaw: tags.access || null,
+          lat,
+          lon,
+          name: tags.name || null,
+          distance: haversine(userLat, userLon, lat, lon),
+          tags,
+          tagCount: Object.keys(tags).length
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.distance - b.distance);
+  }
+
+  // ── Render ──────────────────────────────────
+
+  function renderFiltered() {
+    const byType = allResults.filter(r => activeTypes.has(r.type));
+
+    // Count access categories (before access filter, so pills show totals)
+    const accessCounts = { public: 0, restricted: 0, limited: 0, untagged: 0 };
+    byType.forEach(r => { accessCounts[r.access] = (accessCounts[r.access] || 0) + 1; });
+
+    $('countAll').textContent = byType.length;
+    $('countPublic').textContent = accessCounts.public;
+    $('countRestricted').textContent = accessCounts.restricted + accessCounts.limited;
+    $('countUntagged').textContent = accessCounts.untagged;
+
+    // Apply access filter
+    let filtered = byType;
+    if (activeAccess === 'public') {
+      filtered = byType.filter(r => r.access === 'public');
+    } else if (activeAccess === 'restricted') {
+      filtered = byType.filter(r => r.access === 'restricted' || r.access === 'limited');
+    } else if (activeAccess === 'untagged') {
+      filtered = byType.filter(r => r.access === 'untagged');
+    }
+
+    renderStats(filtered);
+    renderMarkers(filtered);
+    renderList(filtered);
+  }
+
+  function renderStats(filtered) {
+    const counts = { playground: 0, park: 0, swimming_pool: 0 };
+    const accessCounts = { public: 0, restricted: 0, limited: 0, untagged: 0 };
+    let totalTags = 0;
+
+    filtered.forEach(r => {
+      counts[r.type] = (counts[r.type] || 0) + 1;
+      accessCounts[r.access] = (accessCounts[r.access] || 0) + 1;
+      totalTags += r.tagCount;
+    });
+
+    $('countPlayground').textContent = counts.playground;
+    $('countPark').textContent = counts.park;
+    $('countPool').textContent = counts.swimming_pool;
+
+    const avgTags = filtered.length ? (totalTags / filtered.length).toFixed(1) : 0;
+    const pct = n => filtered.length ? Math.round(n / filtered.length * 100) : 0;
+
+    statsBar.innerHTML = `
+      <span><strong>${filtered.length}</strong> shown</span>
+      <span class="sep"></span>
+      <span><strong>${allResults.length}</strong> total</span>
+      <span class="sep"></span>
+      <span>avg <strong>${avgTags}</strong> tags</span>
+      <span class="sep"></span>
+      <span title="% with access tag"><strong>${pct(accessCounts.public + accessCounts.restricted + accessCounts.limited)}%</strong> tagged</span>
+    `;
+  }
+
+  function renderMarkers(filtered) {
+    markersLayer.clearLayers();
+
+    filtered.forEach(place => {
+      const cfg = TYPE_CONFIG[place.type] || TYPE_CONFIG.playground;
+      const symbol = TYPE_SYMBOLS[place.type] || '\u25CF';
+      const isRestricted = place.access === 'restricted' || place.access === 'limited';
+      const opacity = isRestricted ? 0.45 : 1;
+      const stroke = isRestricted ? 'stroke-dasharray="2 1.5"' : '';
+
+      const icon = L.divIcon({
+        className: 'place-marker',
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36],
+        html: `<svg viewBox="0 0 28 36" width="28" height="36" xmlns="http://www.w3.org/2000/svg" style="opacity:${opacity}">
+          <path d="M14 1C14 1 1 11 1 19a13 13 0 0 0 26 0C27 11 14 1 14 1z" fill="${cfg.color}" stroke="white" stroke-width="1.5" ${stroke}/>
+          <text x="14" y="22" text-anchor="middle" font-size="11" fill="white" font-weight="bold">${symbol}</text>
+        </svg>`
+      });
+
+      const marker = L.marker([place.lat, place.lon], { icon }).addTo(markersLayer);
+
+      marker.on('click', () => {
+        highlightResult(place.id);
+        scrollToResult(place.id);
+      });
+
+      const accessBadge = ACCESS_LABELS[place.access];
+      marker.bindPopup(`
+        <div style="font-family:var(--font);font-size:13px;">
+          <strong>${place.name || 'Unnamed'}</strong><br>
+          <span style="color:${cfg.color};font-weight:600">${cfg.label}</span>
+          &middot; ${accessBadge}
+          &middot; ${formatDist(place.distance)}
+          &middot; ${place.tagCount} tags
+        </div>
+      `, { closeButton: false, offset: [0, -4] });
+    });
+  }
+
+  function renderList(filtered) {
+    if (filtered.length === 0) {
+      resultsList.innerHTML = `<div class="empty-state"><div class="icon">&#128722;</div><p>No results match current filters</p></div>`;
+      return;
+    }
+
+    resultsList.innerHTML = filtered.map(place => {
+      const cfg = TYPE_CONFIG[place.type] || TYPE_CONFIG.playground;
+      const isNamed = !!place.name;
+      const accessLabel = ACCESS_LABELS[place.access];
+      const accessClass = 'access-' + (place.access === 'limited' ? 'limited' : place.access);
+      const accessTitle = place.accessRaw ? `access=${place.accessRaw}` : 'no access tag';
+
+      // Sort tags: name first, access second, then alphabetical
+      const tagEntries = Object.entries(place.tags).sort((a, b) => {
+        if (a[0] === 'name') return -1;
+        if (b[0] === 'name') return 1;
+        if (a[0] === 'access') return -1;
+        if (b[0] === 'access') return 1;
+        return a[0].localeCompare(b[0]);
+      });
+
+      const tagsHtml = tagEntries.map(([k, v]) => {
+        const highlight = k === 'access' ? ' style="font-weight:700;color:var(--fg)"' : '';
+        const val = isUrl(v)
+          ? `<a href="${v}" target="_blank" rel="noopener">${truncate(v, 60)}</a>`
+          : escapeHtml(v);
+        return `<span class="tag-key"${highlight}>${escapeHtml(k)}</span><span class="tag-val"${highlight}>${val}</span>`;
+      }).join('');
+
+      const osmUrl = `https://www.openstreetmap.org/${place.osmType}/${place.id}`;
+
+      return `
+        <div class="result-item" data-id="${place.id}" onclick="window.__toggleResult(this)">
+          <div class="result-header">
+            <span class="result-type-dot" style="background:${cfg.color}"></span>
+            <span class="result-name ${isNamed ? '' : 'unnamed'}">${isNamed ? escapeHtml(place.name) : 'Unnamed ' + cfg.label}</span>
+            <span class="result-access ${accessClass}" title="${accessTitle}">${accessLabel}</span>
+            <span class="result-type-badge" style="background:${cfg.color}15;color:${cfg.color}">${cfg.label}</span>
+            <span class="result-dist">${formatDist(place.distance)}</span>
+          </div>
+          <div class="result-tags">
+            <div class="tags-grid">${tagsHtml}</div>
+            <a class="osm-link" href="${osmUrl}" target="_blank" rel="noopener">View on OpenStreetMap &rarr;</a>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Interactions ────────────────────────────
+
+  window.__toggleResult = function(el) {
+    const wasExpanded = el.classList.contains('expanded');
+
+    // Collapse all others
+    document.querySelectorAll('.result-item.expanded').forEach(item => {
+      if (item !== el) item.classList.remove('expanded');
+    });
+
+    el.classList.toggle('expanded', !wasExpanded);
+
+    const id = parseInt(el.dataset.id);
+    highlightResult(id);
+
+    // Pan map to this place
+    const place = allResults.find(r => r.id === id);
+    if (place) {
+      map.panTo([place.lat, place.lon], { animate: true, duration: 0.3 });
+    }
+  };
+
+  function highlightResult(id) {
+    highlightedId = id;
+    document.querySelectorAll('.result-item').forEach(item => {
+      item.classList.toggle('highlighted', parseInt(item.dataset.id) === id);
+    });
+  }
+
+  function scrollToResult(id) {
+    const el = resultsList.querySelector(`[data-id="${id}"]`);
+    if (!el) return;
+
+    // Expand it
+    document.querySelectorAll('.result-item.expanded').forEach(item => {
+      if (item !== el) item.classList.remove('expanded');
+    });
+    el.classList.add('expanded');
+    highlightResult(id);
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Map helpers ─────────────────────────────
+
+  function placeUserMarker(lat, lon) {
+    if (userPulse) map.removeLayer(userPulse);
+    if (userMarker) map.removeLayer(userMarker);
+
+    userPulse = L.marker([lat, lon], {
+      icon: L.divIcon({ className: 'user-pulse', iconSize: [40, 40], iconAnchor: [20, 20] }),
+      interactive: false
+    }).addTo(map);
+
+    userMarker = L.marker([lat, lon], {
+      icon: L.divIcon({ className: 'user-marker', iconSize: [16, 16], iconAnchor: [8, 8] }),
+      interactive: false,
+      zIndexOffset: 1000
+    }).addTo(map);
+  }
+
+  function updateRadiusCircle() {
+    const lat = parseFloat(inputLat.value);
+    const lon = parseFloat(inputLon.value);
+    const radius = parseInt(radiusSlider.value);
+
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    if (radiusCircle) map.removeLayer(radiusCircle);
+
+    radiusCircle = L.circle([lat, lon], {
+      radius: radius,
+      color: '#f45436',
+      fillColor: '#f45436',
+      fillOpacity: 0.04,
+      weight: 1.5,
+      dashArray: '6 4',
+      interactive: false
+    }).addTo(map);
+  }
+
+  function radiusToZoom(radius) {
+    if (radius <= 300) return 17;
+    if (radius <= 600) return 16;
+    if (radius <= 1200) return 15;
+    if (radius <= 2000) return 14;
+    return 13;
+  }
+
+  // ── Utils ───────────────────────────────────
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function formatDist(m) {
+    if (m < 1000) return Math.round(m) + ' m';
+    return (m / 1000).toFixed(1) + ' km';
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function isUrl(str) {
+    return /^https?:\/\//.test(str);
+  }
+
+  function truncate(str, len) {
+    return str.length > len ? str.slice(0, len) + '\u2026' : str;
+  }
+
+  function showLoading(msg) {
+    mapLoading.querySelector('.loader').innerHTML = `<div class="spinner"></div>${msg || 'Loading\u2026'}`;
+    mapLoading.classList.add('visible');
+  }
+
+  function hideLoading() {
+    mapLoading.classList.remove('visible');
+  }
+
+  // ── Boot ────────────────────────────────────
+
+  init();
+
+})();
+</script>
+</body>
+</html>
