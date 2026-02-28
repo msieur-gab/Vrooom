@@ -128,7 +128,7 @@ export async function setSetting(key, value) {
   await db.settings.put({ key, value });
 }
 
-// ── Export ─────────────────────────────────────
+// ── Export / Import ────────────────────────────
 
 export async function exportAll() {
   return {
@@ -138,6 +138,22 @@ export async function exportAll() {
     badges: await db.badges.toArray(),
     settings: await db.settings.toArray()
   };
+}
+
+export async function importAll(data) {
+  await db.transaction('rw', db.profiles, db.cars, db.check_ins, db.badges, db.settings, async () => {
+    await db.profiles.clear();
+    await db.cars.clear();
+    await db.check_ins.clear();
+    await db.badges.clear();
+    await db.settings.clear();
+
+    if (data.profiles?.length)  await db.profiles.bulkAdd(data.profiles);
+    if (data.cars?.length)      await db.cars.bulkAdd(data.cars);
+    if (data.check_ins?.length) await db.check_ins.bulkAdd(data.check_ins);
+    if (data.badges?.length)    await db.badges.bulkAdd(data.badges);
+    if (data.settings?.length)  await db.settings.bulkAdd(data.settings);
+  });
 }
 
 export { db };

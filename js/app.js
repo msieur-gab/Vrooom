@@ -168,6 +168,8 @@ function setupEventListeners() {
   $('btn-garage-scan').addEventListener('click', startNFCScan);
   $('btn-garage-pick').addEventListener('click', () => showScreen('car-select'));
   $('btn-export').addEventListener('click', exportData);
+  $('btn-import').addEventListener('click', () => $('import-file').click());
+  $('import-file').addEventListener('change', importData);
 
   // Garage toy controls
   $('btn-garage-engine').addEventListener('click', () => {
@@ -741,6 +743,37 @@ async function exportData() {
     showToast('Data exported!');
   } catch (err) {
     showToast('Export failed');
+  }
+}
+
+async function importData(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    if (!data.profiles || !data.cars) {
+      showToast('Invalid backup file');
+      return;
+    }
+
+    await db.importAll(data);
+    showToast('Data restored!');
+
+    // Reload app state from DB
+    profile = await db.getProfile();
+    selectedCar = await db.getSelectedCar();
+    if (profile && selectedCar) {
+      showScreen('garage');
+    } else {
+      showScreen('welcome');
+    }
+  } catch (err) {
+    showToast('Import failed');
+  } finally {
+    e.target.value = '';
   }
 }
 

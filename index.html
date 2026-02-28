@@ -224,7 +224,11 @@
       </button>
       <button class="btn btn-ghost" id="btn-garage-pick">Switch Car</button>
     </div>
-    <button class="btn btn-ghost" id="btn-export" style="max-width:320px;">Export Data</button>
+    <div style="display:flex;gap:8px;max-width:320px;width:100%;">
+      <button class="btn btn-ghost" id="btn-export" style="flex:1;">Export Data</button>
+      <button class="btn btn-ghost" id="btn-import" style="flex:1;">Import Data</button>
+    </div>
+    <input type="file" id="import-file" accept=".json" hidden>
   </section>
 
   <!-- ═══════════════════════════════════════════
