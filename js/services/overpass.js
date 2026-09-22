@@ -27,17 +27,26 @@
  * replacement is chosen.
  */
 export const OVERPASS_ENDPOINTS = [
-  // mail.ru (VK Maps) first: measured 2026-09-22, it is the only worldwide
-  // instance either this app or a server can actually reach.
+  // OpenStreetMap France. Measured 2026-09-22: worldwide (Lyon 63, Zürich 40,
+  // Tokyo 15 — matching other instances), `ACAO: *`, ~0.9s, and stable over six
+  // rapid consecutive queries. Five times faster than mail.ru and it keeps the
+  // GPS coordinates of children inside the EU, which mail.ru did not.
+  'https://overpass.openstreetmap.fr/api/interpreter',
+
+  // Fallbacks. mail.ru is worldwide and reachable but was saturating; it stays
+  // because it is the only other instance that answered at all today.
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 
-  // Kept because its refusal costs ~200ms and it may recover. It answers 406
-  // to every request shape we tried (UA, Referer, Accept, GET, POST) while its
-  // /api/status answers 200 from the same IP, so the block is endpoint-level
-  // and not something the app can talk its way past. There is no API key or
-  // paid tier for it either - verified on overpass-api.de directly.
+  // Answers 406 to every request shape tried (UA, Referer, Accept, GET, POST)
+  // while its /api/status answers 200 from the same IP, so the block is
+  // endpoint-level and deliberate. No API key or paid tier exists for it.
+  // Kept only because its refusal costs ~200ms and it may recover.
   'https://overpass-api.de/api/interpreter'
 ];
+
+// NEVER add a mirror without checking it returns real data FOR THE REGION IN
+// USE. overpass.osm.ch answers 200 with valid JSON and ZERO elements outside
+// Switzerland, which blanks the map with no error. Use tools/overpass-check.html.
 
 // The client must wait LONGER than the server is allowed to work, or a slow
 // but successful query gets killed by our own abort.
