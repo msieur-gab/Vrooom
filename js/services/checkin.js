@@ -8,14 +8,10 @@
 import { haversine } from '../utils/distance.js';
 import * as db from './database.js';
 import { checkAndAwardBadges } from './badge.js';
+import { getCachedNearby } from './playground-cache.js';
+import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
 
 const CHECKIN_RADIUS = 150; // meters — search radius for nearby places
-
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
-];
 
 /**
  * Build a dedup key from type + lat/lng rounded to 3 decimals.
@@ -46,7 +42,7 @@ function freshGPS() {
  */
 async function queryNearbyPlaces(lat, lon, radius) {
   const query = `
-    [out:json][timeout:15];
+    [out:json][timeout:${SERVER_TIMEOUT_S}];
     (
       nwr["leisure"~"^(playground|park|swimming_pool)$"](around:${radius},${lat},${lon});
       nwr["amenity"="swimming_pool"](around:${radius},${lat},${lon});
@@ -62,7 +58,7 @@ async function queryNearbyPlaces(lat, lon, radius) {
       const res = await fetch(endpoint, {
         method: 'POST',
         body,
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS)
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
@@ -112,6 +108,34 @@ function normalizeElements(elements, userLat, userLon) {
 }
 
 /**
+ * Same shape as queryNearbyPlaces, served from the local cache.
+ *
+ * The cache is filled by the map screen (playground.js), so it only holds
+ * playgrounds — parks and pools are not in it. placeKey is rebuilt the same
+ * way, so a cached check-in lands on the SAME badge as a live one.
+ */
+async function cachedNearbyPlaces(lat, lon, radius) {
+  const cached = await getCachedNearby(lat, lon, radius);
+
+  return cached
+    .map(pt => {
+      const tags = pt.tags || {};
+      const type = tags.leisure || tags.amenity || 'playground';
+      return {
+        id: pt.id,
+        placeKey: placeKey(type, pt.lat, pt.lon),
+        type,
+        lat: pt.lat,
+        lon: pt.lon,
+        name: pt.name || null,
+        distance: haversine(lat, lon, pt.lat, pt.lon),
+        tags
+      };
+    })
+    .sort((a, b) => a.distance - b.distance);
+}
+
+/**
  * Destination-agnostic check-in.
  *
  * 1. Fresh GPS read
@@ -120,14 +144,27 @@ function normalizeElements(elements, userLat, userLon) {
  * 4. Log visit with dedup key
  * 5. Award badges
  *
- * @returns {{ place, checkIn, newBadges }}
+ * @returns {{ place, checkIn, newBadges, fromCache }}
  */
 export async function checkIn(profileId, carId) {
   // 1. Fresh GPS
   const coords = await freshGPS();
 
-  // 2. Query nearby places
-  const places = await queryNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
+  // 2. Query nearby places, falling back to whatever the map screen cached.
+  //    A kid standing at a playground they have visited before should still be
+  //    able to check in when Overpass is unreachable.
+  let places;
+  let fromCache = false;
+
+  try {
+    places = await queryNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
+  } catch (networkErr) {
+    places = await cachedNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
+    fromCache = true;
+
+    // Nothing cached here either — the network error is the useful one to show.
+    if (places.length === 0) throw networkErr;
+  }
 
   if (places.length === 0) {
     throw new Error('No playground, park or pool found within 150m. Get closer and try again!');
@@ -152,7 +189,7 @@ export async function checkIn(profileId, carId) {
     name: displayName
   });
 
-  return { place, checkIn: record, newBadges };
+  return { place, checkIn: record, newBadges, fromCache };
 }
 
 /**

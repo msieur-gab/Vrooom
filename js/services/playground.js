@@ -4,18 +4,13 @@
  */
 
 import { cachePoints, getCachedNearby, pruneStale } from './playground-cache.js';
+import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
 
 export { getCachedNearby };
 
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
-];
-
 export async function fetchNearby(lat, lon, radius = 1500) {
   const query = `
-    [out:json][timeout:12];
+    [out:json][timeout:${SERVER_TIMEOUT_S}];
     (
       way["leisure"="playground"](around:${radius},${lat},${lon});
       node["leisure"="playground"](around:${radius},${lat},${lon});
@@ -31,7 +26,7 @@ export async function fetchNearby(lat, lon, radius = 1500) {
       const res = await fetch(endpoint, {
         method: 'POST',
         body,
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS)
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();

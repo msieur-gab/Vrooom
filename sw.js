@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v15';
+const CACHE_NAME = 'vrooom-v16';
 
 const PRECACHE = [
   './',
@@ -27,6 +27,7 @@ const PRECACHE = [
   './js/components/car-viewer/capture.js',
   './js/services/database.js',
   './js/services/nfc.js',
+  './js/services/overpass.js',
   './js/services/playground.js',
   './js/services/playground-cache.js',
   './js/services/checkin.js',
@@ -70,6 +71,11 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Browser extensions issue requests the Cache API refuses to store
+  // ("Request scheme 'chrome-extension' is unsupported"), and the cross-origin
+  // branch below would try to cache them and throw on every page load.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // Never touch the badge-sync relay. It is polled until it changes, and the
   // cache-first branch below would happily serve the first empty 204 forever.
