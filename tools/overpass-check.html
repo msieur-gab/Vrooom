@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Vrooom — Overpass endpoint check</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 20px; background: #faf8f5; color: #2a2520; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #6b635a; margin: 0 0 20px; }
+  .row { display: flex; gap: 10px; align-items: baseline; margin-bottom: 12px; }
+  input, button { font: inherit; padding: 8px 10px; border: 1px solid #d5cec5; border-radius: 8px; background: #fff; }
+  button { background: #f45436; color: #fff; border: 0; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e8e2da; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b635a; }
+  code { font-size: 13px; }
+  .ok   { color: #1f7a3d; font-weight: 600; }
+  .bad  { color: #b3261e; font-weight: 600; }
+  .warn { color: #a06a00; font-weight: 600; }
+  .note { margin-top: 20px; padding: 12px 14px; background: #fff; border-left: 3px solid #f45436; border-radius: 4px; font-size: 14px; }
+</style>
+
+<h1>Overpass endpoint check</h1>
+<p class="sub">Runs the real map query from <em>this</em> browser, so CORS and regional coverage are measured for real.</p>
+
+<div class="row">
+  <label>lat <input id="lat" value="45.7578" size="9"></label>
+  <label>lon <input id="lon" value="4.8320" size="9"></label>
+  <label>radius <input id="rad" value="1500" size="5"></label>
+  <button id="go">Test all</button>
+</div>
+
+<table>
+  <thead><tr><th>endpoint</th><th>status</th><th>time</th><th>playgrounds</th><th>verdict</th></tr></thead>
+  <tbody id="out"></tbody>
+</table>
+
+<div class="note">
+  <strong>A usable endpoint needs all three:</strong> it answers, it sends CORS headers, and it
+  returns a plausible <em>count for your region</em>.
+  A mirror can answer <code>200</code> with valid JSON and zero elements simply because it only
+  holds another country's data — that is what <code>overpass.osm.ch</code> does outside
+  Switzerland, and it blanks the map without any error.
+  Some also answer <code>200</code> with an HTML error body.
+</div>
+
+<script>
+const ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+  'https://overpass.osm.jp/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter'
+];
+
+const out = document.getElementById('out');
+const go = document.getElementById('go');
+
+function cell(row, text, cls) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  if (cls) td.className = cls;
+  row.appendChild(td);
+  return td;
+}
+
+async function test(endpoint, lat, lon, rad) {
+  const query = `[out:json][timeout:15];(way["leisure"="playground"](around:${rad},${lat},${lon});node["leisure"="playground"](around:${rad},${lat},${lon}););out center body;`;
+  const started = performance.now();
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      body: 'data=' + encodeURIComponent(query),
+      signal: AbortSignal.timeout(30000)
+    });
+    const ms = Math.round(performance.now() - started);
+    const text = await res.text();
+
+    if (!res.ok) return { ms, status: `HTTP ${res.status}`, count: '—', verdict: 'unusable', cls: 'bad' };
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // 200 with an HTML error body — looks fine, is not
+      return { ms, status: 'HTTP 200', count: 'not JSON', verdict: 'unusable', cls: 'bad' };
+    }
+
+    const count = (data.elements || []).length;
+    if (count === 0) {
+      return { ms, status: 'HTTP 200', count: 0, verdict: 'no data here — regional?', cls: 'warn' };
+    }
+    return { ms, status: 'HTTP 200', count, verdict: 'usable', cls: 'ok' };
+
+  } catch (err) {
+    const ms = Math.round(performance.now() - started);
+    // A CORS rejection and a dead host are indistinguishable from JS
+    const why = err.name === 'TimeoutError' ? 'timeout' : 'blocked / unreachable';
+    return { ms, status: why, count: '—', verdict: 'unusable', cls: 'bad' };
+  }
+}
+
+go.addEventListener('click', async () => {
+  go.disabled = true;
+  out.innerHTML = '';
+  const lat = document.getElementById('lat').value.trim();
+  const lon = document.getElementById('lon').value.trim();
+  const rad = document.getElementById('rad').value.trim();
+
+  for (const endpoint of ENDPOINTS) {
+    const row = document.createElement('tr');
+    const host = endpoint.replace('https://', '').replace(/\/api.*/, '');
+    cell(row, host);
+    const statusCell = cell(row, 'testing…');
+    const timeCell = cell(row, '');
+    const countCell = cell(row, '');
+    const verdictCell = cell(row, '');
+    out.appendChild(row);
+
+    const r = await test(endpoint, lat, lon, rad);
+    statusCell.textContent = r.status;
+    timeCell.textContent = r.ms + ' ms';
+    countCell.textContent = r.count;
+    verdictCell.textContent = r.verdict;
+    verdictCell.className = r.cls;
+  }
+  go.disabled = false;
+});
+</script>
