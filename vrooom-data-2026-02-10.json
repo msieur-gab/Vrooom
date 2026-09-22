@@ -1,0 +1,22 @@
+{
+  "profiles": [
+    {
+      "name": "bob",
+      "avatar": "🐱",
+      "created": 1770719274713,
+      "id": 1
+    }
+  ],
+  "cars": [
+    {
+      "name": "Classic Vroom",
+      "config": "./data/conf-vroom.json",
+      "selected": 1,
+      "created": 1770719264279,
+      "id": 1
+    }
+  ],
+  "check_ins": [],
+  "badges": [],
+  "settings": []
+}
