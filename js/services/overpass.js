@@ -27,24 +27,23 @@
  * replacement is chosen.
  */
 export const OVERPASS_ENDPOINTS = [
-  // OpenStreetMap France. Measured 2026-09-22: worldwide (Lyon 63, Zürich 40,
-  // Tokyo 15 — matching counts from other instances), `ACAO: *`, ~0.9s, stable
-  // over six rapid consecutive queries. Five times faster than mail.ru, and it
-  // keeps the GPS coordinates of children inside the EU.
-  'https://overpass.openstreetmap.fr/api/interpreter',
+  // NOT overpass.openstreetmap.fr. It answers 200 to curl and 403 to anything
+  // that looks like an application: a browser User-Agent, `Mozilla/5.0`,
+  // `node-fetch` and even a descriptive `Vrooom/1.0` are all refused, while no
+  // UA at all or `curl/8.5.0` pass. OSM France is deliberately keeping app
+  // traffic off a volunteer-run server. A browser cannot change its
+  // User-Agent, and spoofing one from a proxy would be circumventing a stated
+  // policy on someone else's infrastructure. Do not add it back.
 
-  // Answers 406 to every request shape tried (UA, Referer, Accept, GET, POST)
-  // while its /api/status answers 200 from the same IP — the block is
-  // endpoint-level and deliberate, and no API key or paid tier exists for it.
-  // Second anyway: the refusal costs ~200ms, and it may recover.
-  'https://overpass-api.de/api/interpreter',
+  // The only instance that answers this app from a browser.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 
-  // Last resort. Worldwide and reachable, but it was saturating, and sending
-  // children's coordinates to Russian infrastructure is a GDPR question we
-  // would rather not answer. Kept only because it is the one other instance
-  // that answered at all today.
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  // Answers 406 to every request shape tried while its /api/status answers 200
+  // from the same IP — the block is endpoint-level and deliberate, and no API
+  // key or paid tier exists for it. Kept because the refusal is fast.
+  'https://overpass-api.de/api/interpreter'
 ];
+
 
 
 // NEVER add a mirror without checking it returns real data FOR THE REGION IN
