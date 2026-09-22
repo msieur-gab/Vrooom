@@ -182,6 +182,67 @@
     flex-shrink: 0;
   }
 
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 20px;
+    background: #f0f4ff;
+    border-bottom: 1px solid #d0d8f0;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+  }
+
+  .filter-bar .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .filter-bar label {
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 72px;
+    color: #444;
+  }
+
+  .filter-bar input[type=range] {
+    width: 90px;
+    accent-color: var(--accent);
+  }
+
+  .filter-bar .val {
+    min-width: 30px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filter-bar .reset-btn {
+    padding: 4px 12px;
+    border: 1.5px solid var(--surface-border);
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .filter-bar .css-output {
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: #555;
+    background: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #d0d8f0;
+    flex: 1;
+    min-width: 200px;
+    cursor: pointer;
+    user-select: all;
+  }
+
   .style-picker {
     display: flex;
     align-items: center;
@@ -241,6 +302,31 @@
   <input type="text" id="apiKeyInput" placeholder="Paste your free MapTiler key here">
   <button class="apply-btn" id="applyKey">Apply</button>
   <a href="https://cloud.maptiler.com/account/keys/" target="_blank" rel="noopener">Get free key &rarr;</a>
+</div>
+
+<div class="filter-bar" id="filterBar">
+  <div class="filter-group">
+    <label>Warmth</label>
+    <input type="range" id="f-sepia" min="0" max="60" value="0">
+    <span class="val" id="v-sepia">0%</span>
+  </div>
+  <div class="filter-group">
+    <label>Saturation</label>
+    <input type="range" id="f-sat" min="40" max="160" value="100">
+    <span class="val" id="v-sat">100%</span>
+  </div>
+  <div class="filter-group">
+    <label>Brightness</label>
+    <input type="range" id="f-bright" min="70" max="130" value="100">
+    <span class="val" id="v-bright">100%</span>
+  </div>
+  <div class="filter-group">
+    <label>Hue shift</label>
+    <input type="range" id="f-hue" min="-30" max="30" value="0">
+    <span class="val" id="v-hue">0°</span>
+  </div>
+  <button class="reset-btn" id="resetFilter">Reset</button>
+  <span class="css-output" id="cssOutput" title="Click to copy">filter: none</span>
 </div>
 
 <div class="style-picker" id="stylePicker">
@@ -325,6 +411,7 @@
     createMaps();
     buildStylePicker();
     addSampleMarkers();
+    initFilters();
 
     // Load default slots (free styles work without a key)
     for (let i = 0; i < 3; i++) setStyle(i, activeStyles[i]);
@@ -438,6 +525,64 @@
         picker.appendChild(btn);
       });
     }
+  }
+
+  // ── Filter controls ───────────────────────────
+
+  function initFilters() {
+    const sliders = [
+      { id: 'f-sepia',  val: 'v-sepia',  suffix: '%' },
+      { id: 'f-sat',    val: 'v-sat',    suffix: '%' },
+      { id: 'f-bright', val: 'v-bright', suffix: '%' },
+      { id: 'f-hue',    val: 'v-hue',    suffix: '°' },
+    ];
+
+    sliders.forEach(({ id, val, suffix }) => {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', () => {
+        document.getElementById(val).textContent = slider.value + suffix;
+        applyFilter();
+      });
+    });
+
+    document.getElementById('resetFilter').addEventListener('click', () => {
+      document.getElementById('f-sepia').value = 0;
+      document.getElementById('f-sat').value = 100;
+      document.getElementById('f-bright').value = 100;
+      document.getElementById('f-hue').value = 0;
+      sliders.forEach(({ id, val, suffix }) => {
+        document.getElementById(val).textContent = document.getElementById(id).value + suffix;
+      });
+      applyFilter();
+    });
+
+    document.getElementById('cssOutput').addEventListener('click', () => {
+      const text = document.getElementById('cssOutput').textContent;
+      navigator.clipboard.writeText(text).catch(() => {});
+    });
+  }
+
+  function applyFilter() {
+    const sepia  = document.getElementById('f-sepia').value;
+    const sat    = document.getElementById('f-sat').value;
+    const bright = document.getElementById('f-bright').value;
+    const hue    = document.getElementById('f-hue').value;
+
+    const parts = [];
+    if (+sepia  !== 0)   parts.push(`sepia(${sepia}%)`);
+    if (+sat    !== 100) parts.push(`saturate(${sat}%)`);
+    if (+bright !== 100) parts.push(`brightness(${bright}%)`);
+    if (+hue    !== 0)   parts.push(`hue-rotate(${hue}deg)`);
+
+    const filterVal = parts.length ? parts.join(' ') : 'none';
+
+    // Apply to the tile pane of every map
+    maps.forEach(m => {
+      const pane = m.getPanes().tilePane;
+      if (pane) pane.style.filter = filterVal === 'none' ? '' : filterVal;
+    });
+
+    document.getElementById('cssOutput').textContent = `filter: ${filterVal}`;
   }
 
   function FREE_STYLES_LABELS() {
