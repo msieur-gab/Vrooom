@@ -4,7 +4,7 @@
  */
 
 import { cachePoints, getCachedNearby, pruneStale } from './playground-cache.js';
-import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, timeoutFor } from './overpass.js';
+import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
 
 export { getCachedNearby };
 
@@ -26,7 +26,7 @@ export async function fetchNearby(lat, lon, radius = 1500) {
       const res = await fetch(endpoint, {
         method: 'POST',
         body,
-        signal: AbortSignal.timeout(timeoutFor(endpoint))
+        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS)
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();

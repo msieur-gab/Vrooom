@@ -27,30 +27,19 @@
  * replacement is chosen.
  */
 export const OVERPASS_ENDPOINTS = [
-  // Our own proxy first. Server to server there is no CORS, so it can reach
-  // mirrors the browser cannot — measured from a real browser on 2026-09-22,
-  // kumi, private.coffee and openstreetmap.ru all time out, leaving mail.ru as
-  // the ONLY endpoint a browser can use directly. The proxy exists to end that.
-  '/api/overpass',
+  // mail.ru (VK Maps) first: measured 2026-09-22, it is the only worldwide
+  // instance either this app or a server can actually reach.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 
-  // Direct fallbacks, kept so the app still works if the proxy is unavailable
-  // (a different host, a failed deploy, or running the PWA from a file server).
-  'https://overpass-api.de/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  // Kept because its refusal costs ~200ms and it may recover. It answers 406
+  // to every request shape we tried (UA, Referer, Accept, GET, POST) while its
+  // /api/status answers 200 from the same IP, so the block is endpoint-level
+  // and not something the app can talk its way past. There is no API key or
+  // paid tier for it either - verified on overpass-api.de directly.
+  'https://overpass-api.de/api/interpreter'
 ];
 
 // The client must wait LONGER than the server is allowed to work, or a slow
 // but successful query gets killed by our own abort.
 export const SERVER_TIMEOUT_S = 10;
-
-const DIRECT_TIMEOUT_MS = 12000;
-const PROXY_TIMEOUT_MS = 20000;   // the proxy may try several mirrors in turn
-
-/**
- * Our own proxy needs a longer budget than a direct call: it walks its mirror
- * list server-side. Aborting it at the direct timeout killed every proxied
- * request before it could answer.
- */
-export function timeoutFor(endpoint) {
-  return endpoint.startsWith('/') ? PROXY_TIMEOUT_MS : DIRECT_TIMEOUT_MS;
-}
+export const CLIENT_TIMEOUT_MS = 12000;
