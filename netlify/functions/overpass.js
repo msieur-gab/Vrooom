@@ -19,17 +19,22 @@
  *     another mirror is still untried.
  */
 
+// Measured through this proxy on 2026-09-22: mail.ru is the only mirror
+// Netlify can reach either. It goes first so the common path costs one round
+// trip — trying the dead ones first cost 25s instead of 5s. The rest stay as
+// fallbacks in case they come back.
 const MIRRORS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass.osm.jp/api/interpreter',
   'https://overpass.openstreetmap.ru/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  'https://overpass-api.de/api/interpreter'
 ];
 
 const MAX_QUERY_BYTES = 8 * 1024;
-const UPSTREAM_TIMEOUT_MS = 20000;
+const UPSTREAM_TIMEOUT_MS = 8000;   // a dead mirror must not cost 20s
+const TOTAL_BUDGET_MS = 16000;      // answer before the client gives up at 20s
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -58,14 +63,18 @@ export default async (request) => {
 
   const tried = [];
   let emptyFallback = null;
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
 
   for (const mirror of MIRRORS) {
+    const left = deadline - Date.now();
+    if (left < 1500) { tried.push(`${host(mirror)}:skipped-no-time`); continue; }
+
     try {
       const res = await fetch(mirror, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
-        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+        signal: AbortSignal.timeout(Math.min(UPSTREAM_TIMEOUT_MS, left))
       });
 
       if (!res.ok) { tried.push(`${host(mirror)}:${res.status}`); continue; }

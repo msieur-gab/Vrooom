@@ -9,7 +9,7 @@ import { haversine } from '../utils/distance.js';
 import * as db from './database.js';
 import { checkAndAwardBadges } from './badge.js';
 import { getCachedNearby } from './playground-cache.js';
-import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
+import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, timeoutFor } from './overpass.js';
 
 const CHECKIN_RADIUS = 150; // meters — search radius for nearby places
 
@@ -58,7 +58,7 @@ async function queryNearbyPlaces(lat, lon, radius) {
       const res = await fetch(endpoint, {
         method: 'POST',
         body,
-        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS)
+        signal: AbortSignal.timeout(timeoutFor(endpoint))
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();

@@ -42,4 +42,15 @@ export const OVERPASS_ENDPOINTS = [
 // The client must wait LONGER than the server is allowed to work, or a slow
 // but successful query gets killed by our own abort.
 export const SERVER_TIMEOUT_S = 10;
-export const CLIENT_TIMEOUT_MS = 12000;
+
+const DIRECT_TIMEOUT_MS = 12000;
+const PROXY_TIMEOUT_MS = 20000;   // the proxy may try several mirrors in turn
+
+/**
+ * Our own proxy needs a longer budget than a direct call: it walks its mirror
+ * list server-side. Aborting it at the direct timeout killed every proxied
+ * request before it could answer.
+ */
+export function timeoutFor(endpoint) {
+  return endpoint.startsWith('/') ? PROXY_TIMEOUT_MS : DIRECT_TIMEOUT_MS;
+}
