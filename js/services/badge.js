@@ -120,22 +120,24 @@ export async function getBadgeCollection(profileId) {
 /**
  * Build what the phone hands to the computer for printing.
  *
- * Place names are deliberately absent: a named child plus the list of
- * playgrounds they visit is a location profile, so only counts travel. The
- * computer knows how many badges to lay out, never where they were earned.
+ * v2 sends place names so the printed badges can be captioned. That puts a
+ * child's name alongside the places they visit on the relay for the length of
+ * the payload TTL — see the threat model in BADGE-SYNC-TODO.md for what that
+ * exposes and what it doesn't.
  *
- * Badge captions are pending the naming strategy — see BADGE-NAMING-TODO.md.
+ * v1 sent counts only. The website still accepts it, because a phone running a
+ * cached older build will keep sending that shape until its worker updates.
  */
 export async function buildPrintPayload(profile, car) {
   const collection = await getBadgeCollection(profile.id);
 
   return {
-    v: 1,
+    v: 2,
     user: profile.name,
     car: car?.name || null,
     badges: {
-      playgrounds: collection.playgrounds.length,
-      regulars: collection.regulars.length,
+      playgrounds: collection.playgrounds.map(b => b.title),
+      regulars: collection.regulars.map(b => b.title),
       milestones: collection.milestones.filter(m => m.earned).map(m => m.threshold)
     }
   };

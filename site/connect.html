@@ -69,7 +69,7 @@
   <script type="module">
     import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../js/services/badge-svg.js';
     import { milestoneByThreshold } from '../js/services/milestones.js';
-    import { SYNC_PATH, POLL_INTERVAL_MS, SESSION_TTL_MS } from '../js/config.js';
+    import { SYNC_PATH, POLL_INTERVAL_MS, QR_LIFETIME_MS } from '../js/config.js';
 
     const connectEl = document.getElementById('connect-state');
     const badgeEl = document.getElementById('badge-state');
@@ -104,7 +104,7 @@
     let timer = null;
 
     async function poll() {
-      if (Date.now() - startedAt > SESSION_TTL_MS) {
+      if (Date.now() - startedAt > QR_LIFETIME_MS) {
         clearInterval(timer);
         statusText.textContent = 'This code expired. Refresh the page for a new one.';
         statusText.classList.remove('connected');
@@ -148,11 +148,14 @@
         if (m) cells.push(milestoneBadgeSVG(m.title, m.threshold));
       }
 
-      // Playground and regular badges arrive as counts only — no place names
-      // ever leave the phone, so captions are left blank for now.
-      // See BADGE-NAMING-TODO.md.
-      for (let i = 0; i < (badges.regulars || 0); i++) cells.push(regularBadgeSVG(''));
-      for (let i = 0; i < (badges.playgrounds || 0); i++) cells.push(playgroundBadgeSVG(''));
+      // v2 sends arrays of names; v1 sent counts. A phone on a cached older
+      // build still speaks v1, so accept both and caption what we can.
+      const titles = (field) => Array.isArray(field)
+        ? field
+        : new Array(field || 0).fill('');
+
+      for (const name of titles(badges.regulars)) cells.push(regularBadgeSVG(name));
+      for (const name of titles(badges.playgrounds)) cells.push(playgroundBadgeSVG(name));
 
       const grid = document.getElementById('print-grid');
 

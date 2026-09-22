@@ -14,7 +14,10 @@
 
 import { getStore } from '@netlify/blobs';
 
-const TTL_MS = 15 * 60 * 1000;
+// Measured from the upload, not from when the QR appeared. The handover takes
+// about 20 seconds, so this is deliberately tight — it is the window in which
+// a payload sits readable on the relay.
+const TTL_MS = 2 * 60 * 1000;
 const MAX_BYTES = 64 * 1024;
 const ID_RE = /^[A-Z0-9]{8}$/;
 

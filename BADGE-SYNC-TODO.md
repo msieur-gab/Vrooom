@@ -1,109 +1,144 @@
-# Badge Sync — Replace PeerJS
+# Badge Sync — working document
 
-## Context
+Status as of 2026-09-22. PeerJS is gone; the print bridge is an HTTP relay.
+Supersedes the pre-decision analysis this file used to hold.
 
-The Vrooom app lets kids earn badges at playgrounds. To print them, the flow is:
+## The flow
 
-1. Parent opens `vrooom.app/print` (the `site/connect.html` page) on a computer
-2. Website generates a unique session QR code
-3. Kid scans QR with the Vrooom app on the phone
-4. App sends badge data → website renders a printable badge sheet
+1. Parent opens the connect page on a computer. It invents an 8-character
+   session id and renders it into a QR code.
+2. The kid scans that QR with the Vrooom PWA.
+3. The phone POSTs the badge payload to the relay, keyed by that id.
+4. The connect page, polling every 2s, picks it up and renders a printable
+   badge sheet.
 
-Data flows **phone → [somewhere] → website**. A relay of some kind is unavoidable since the website initiates the session (it shows the QR) and the phone responds.
+The QR is a **pairing token**, not a data carrier — it identifies which kid,
+car and badges the computer is about to receive. Data always flows
+phone -> relay -> computer.
 
----
+## Why PeerJS was replaced
 
-## Why PeerJS is a problem
+- Depended on the `peerjs.com` cloud broker, with no TURN fallback, so it died
+  silently behind restrictive NATs.
+- Imported `peerjs`, `jsqr` and `qrcode` from `esm.sh` at runtime — the phone
+  needed a live internet round trip just to open the scanner, which broke the
+  offline-first promise of the PWA.
+- 330 lines of state machine (heartbeat, timeout, retry, wake lock) whose only
+  user-visible failure mode was "Waiting for connection…".
 
-Current implementation lives in `site/lib/peer-drop/` (peer-bridge.js, peer-qrcode.js, peer-scanner.js).
+Pure HTTP works through every NAT, school firewall and corporate proxy that
+WebRTC died behind. `jsQR` and `qrcode` are now vendored.
 
-- Depends on **peerjs.com cloud signaling** being up — if it's down, nothing works
-- ICE/STUN/TURN negotiation silently fails behind some corporate or school NATs
-- ~250 lines of protocol: heartbeat, timeout, retry, wake lock, connection state machine
-- Users experience "Waiting for connection…" limbo with no clear failure mode
-- External dependency on `esm.sh/peerjs@1` CDN import
+## Implementation
 
----
+| file | role |
+|---|---|
+| `netlify/functions/session.js` | relay on Netlify Blobs (demo host) |
+| `server/php/session.php` | same contract for OVH shared hosting, no build step |
+| `site/connect.html` | QR + 2s poll + badge sheet render |
+| `js/app.js` | scan -> `buildPrintPayload` -> one POST |
+| `js/services/badge.js` | `buildPrintPayload` |
 
-## Proposal evaluated: HTTP relay on Netlify
-
-Since the app is already on Netlify, one small function handles everything:
+Contract:
 
 ```
-POST /session         → creates slot, returns { sessionId: "XK7P2Q" }
-PUT  /session/:id     → phone uploads badge JSON (single fetch call)
-GET  /session/:id     → website polls every 2s, gets data once phone uploaded
+POST /api/session?id=ABCD1234   store payload
+GET  /api/session?id=ABCD1234   204 while empty, 200 + payload once uploaded
 ```
 
-Sessions stored in Netlify Blobs, auto-expire after 15 minutes.
+The phone resolves `/api/session` against the **origin of the scanned QR**, so
+the same app works against Netlify and OVH with no per-host configuration.
 
-**Pros:**
-- Works across any network — pure HTTP, no NAT issues
-- Phone-side: one `fetch()` PUT call, zero state machine
-- Website-side: `setInterval` poll every 2s, clear error on failure
-- No external signaling dependency
-- Deletes `site/lib/peer-drop/` entirely (~250 lines gone)
+Two decisions worth not re-litigating:
 
-**Cons / open questions:**
-- Badge data (playground names, badge types) briefly touches Netlify Blobs — not sensitive, but worth noting
-- Requires Netlify to be up (already the case for the whole site)
-- 2s polling latency (minor)
-- Session management: what if website tab is closed before phone scans?
+- **Reads use strong consistency.** Netlify Blobs reads are eventually
+  consistent by default, and a poll immediately after the upload returns the
+  slot empty. Caused a real production bug; fixed.
+- **Reads do not delete.** A one-shot read whose response was lost in transit
+  would leave the computer polling an empty slot forever — the exact
+  "Waiting for connection…" limbo this rewrite exists to kill. The TTL cleans
+  up instead.
 
-**Rough implementation scope:**
-1. `netlify/functions/session.js` — ~50 lines relay function
-2. Rewrite `site/connect.html` — replace PeerBridge with simple poll loop
-3. Rewrite scanner wiring in `app.js` — replace peer-scanner.js with one fetch()
-4. Delete `site/lib/peer-drop/`
+## Two separate clocks
 
----
+Conflating these makes the page expire in the parent's face.
 
-## Alternatives NOT yet explored
+| clock | where | value | meaning |
+|---|---|---|---|
+| QR lifetime | `js/config.js` `QR_LIFETIME_MS` | 15 min | how long the page keeps polling before calling its QR stale. A patience budget, not a security control. |
+| payload TTL | `session.js` `TTL_MS`, `session.php` `$TTL` | 2 min | how long an uploaded payload stays readable. Measured **from the upload**, not from when the QR appeared. |
 
-This analysis stopped at the first viable option. Before committing, the next agent should
-also evaluate:
+## Payload
 
-### A. Phone-generated QR (reversed flow)
-App taps "Print" → compresses badge collection (gzip + base64url) → encodes directly into QR → parent scans with laptop camera → opens `vrooom.app/print#<data>` → renders instantly.
+v2 (current) sends place names so badges can be captioned:
 
-- Zero server, zero relay, works offline
-- Data never leaves the device
-- Requires flipping UX: **phone shows QR**, parent scans — not website shows QR, phone scans
-- Gab specifically said website shows QR — but worth discussing whether the UX trade-off is acceptable
-- QR capacity: ~600 chars for a typical badge collection (fits at M error correction)
-- `CompressionStream` API available natively in all modern browsers
+```json
+{ "v": 2, "user": "Emma", "car": "Classic Vroom",
+  "badges": { "playgrounds": ["Parc Blandan"], "regulars": [], "milestones": [1] } }
+```
 
-### B. Short-lived clipboard relay (transfer code)
-Phone uploads to relay → gets back a 6-digit human-readable code → user types code on website.
-No QR needed on website, no scanning. More friction but completely network-agnostic.
+v1 sent counts instead of arrays. The connect page still accepts it — a phone
+on a cached older service worker keeps sending v1 until its worker updates.
 
-### C. Local network direct (no relay)
-Phone and computer on same Wi-Fi → phone hosts a tiny local HTTP server → website connects directly.
-No external dependency. But requires same network (school Wi-Fi, home), and "tiny local server" from a PWA is not straightforward (Web Serial? mDNS? Local IP discovery?). Probably not worth the complexity.
+## Threat model
 
-### D. WebSocket relay (vs. polling)
-Same as the Netlify HTTP relay proposal but using a WebSocket for instant push instead of 2s polling.
-Netlify Functions don't natively support WebSockets — would need a different host (Fly.io, Railway, etc.) or a third-party service. Adds infrastructure complexity. Polling at 2s is probably fine for this use case.
+What an uploaded payload exposes while it sits on the relay.
 
-### E. Firebase / Supabase realtime
-Use an existing realtime backend (free tier). Phone writes to a doc, website subscribes.
-Adds a dependency on Google/Supabase. Overkill for what is essentially a one-shot data transfer.
+### Not a realistic risk: guessing a session id
 
----
+Ids are 8 characters from a 32-symbol alphabet drawn from
+`crypto.getRandomValues` — 32^8 ~ 1.1 x 10^12 (40 bits). The alphabet is
+exactly 32 symbols and 256 divides evenly by 32, so `b % 32` is unbiased;
+there are no weak ids.
 
-## Decision needed from Gab
+An attacker making 10 requests/second for the whole window gets ~1,200 guesses
+against a trillion-wide space containing one live session: odds around
+1 in 10^9, before Netlify's rate limiting. Wrong guesses return a bare `204`,
+so there is no oracle to narrow the search.
 
-- Is the UX constraint firm (website shows QR, phone scans) or can it flip (phone shows QR)?
-  - If it can flip → Option A (phone-generated QR) is the cleanest solution, zero infrastructure
-  - If website-shows-QR is firm → HTTP relay on Netlify is the right call
-- Privacy comfort level: ok with badge data touching Netlify Blobs for 15 min?
+### The real exposures
 
----
+1. **Anyone who can see the screen.** The QR is displayed on a computer in
+   whatever room you are in. Photograph it and you can fetch the payload — and
+   because reads do not delete, you can fetch it *after* the parent has. In a
+   home this is irrelevant. In a library, cafe or school it is the actual
+   attack surface, and no amount of key length changes it.
+2. **The host can read it.** Netlify Blobs is unencrypted from our point of
+   view. Same on OVH, with the difference that OVH is our box.
 
-## Files to touch when implementing
+In transit it is TLS, which is fine.
 
-- `site/connect.html` — website QR + badge render page
-- `site/lib/peer-drop/` — delete entirely
-- `js/app.js` — scanner wiring (search for `bridge`, `PeerBridge`, `peer-scanner`)
-- `netlify/functions/session.js` — new file (relay, if HTTP relay chosen)
-- `netlify.toml` — may need functions config
+### Why there is no encryption layer
+
+An E2E-encrypted design was proposed and rejected: the computer would generate
+a key alongside the session id, put it in the QR's **fragment** (never sent to
+a server), and the phone would AES-GCM the payload so the relay stored only
+ciphertext.
+
+It was dropped because the v1 payload carried no place names and so had nothing
+worth protecting — "the idea is to simplify and bring robustness, not to build
+a bunker no one can enter."
+
+**That premise weakened when v2 reintroduced names.** A child's first name plus
+the playgrounds they visit repeatedly is a home-neighbourhood profile. The
+mitigation chosen instead was to cut the exposure window: TTL 15 min -> 2 min.
+If the exposure ever feels too large, the fragment-key design is the thing to
+reach for, and it is maybe 30 lines of WebCrypto.
+
+### Mitigations not yet applied
+
+- **Delete shortly after a successful read** (say 60s), preserving the retry
+  safety that motivated not deleting at all, while closing the long tail.
+- **12-character session ids** — essentially free, though already the
+  strongest link in the chain.
+- **Strip names for places the kid has visited only once**, which are the most
+  location-revealing and the least meaningful as a printed keepsake.
+
+## Open
+
+- Badge captions are often the generic string `Playground` — see
+  `BADGE-NAMING-TODO.md`, which also records a `placeKey` bug that can merge
+  two playgrounds into one badge or split one park into two.
+- The phone half (camera scan -> POST) has not been exercised on a real device.
+- `server/php/session.php` has never been executed; PHP is not installed on the
+  dev machine, so it is reviewed by eye only.

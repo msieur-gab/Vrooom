@@ -17,7 +17,7 @@
 // Session files live OUTSIDE the web root, so nobody can fetch them directly.
 // On OVH mutualisé the web root is ~/www, so this lands in ~/vrooom-sessions.
 $DIR      = __DIR__ . '/../../vrooom-sessions';
-$TTL      = 15 * 60;
+$TTL      = 2 * 60;   // from upload, not from when the QR appeared
 $MAX      = 64 * 1024;
 
 header('Access-Control-Allow-Origin: *');
