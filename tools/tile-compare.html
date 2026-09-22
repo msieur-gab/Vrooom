@@ -339,15 +339,15 @@
     <div class="map" id="map0"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label1">Stadia Bright</div>
+    <div class="map-label" id="label1">Stadia Smooth</div>
     <div class="map" id="map1"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label2">MT Pastel</div>
+    <div class="map-label" id="label2">MT Base v4 ★</div>
     <div class="map" id="map2"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label3">MT Dataviz</div>
+    <div class="map-label" id="label3">MT Pastel</div>
     <div class="map" id="map3"></div>
   </div>
 </div>
@@ -370,6 +370,7 @@
 
   // MapTiler styles — require free API key
   const MT_STYLES = {
+    'base-v4':           'MT Base v4 ★',
     'streets-v2':        'MT Streets',
     'streets-v2-light':  'MT Streets Light',
     'streets-v2-pastel': 'MT Pastel',
@@ -382,8 +383,8 @@
     'topo-v2':           'MT Topo',
   };
 
-  // Default: slot 0 = OSM current, slots 1-3 = best kid-friendly candidates
-  const DEFAULT_SLOTS = ['__stadia_bright', 'streets-v2-pastel', 'dataviz'];
+  // Default: slot 0 = OSM current, slots 1-3 = best candidates
+  const DEFAULT_SLOTS = ['__stadia_smooth', 'base-v4', 'streets-v2-pastel'];
 
   // Sample places to show marker visibility
   const SAMPLE_PLACES = [
