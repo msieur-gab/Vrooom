@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v21';
+const CACHE_NAME = 'vrooom-v22';
 
 const PRECACHE = [
   './',

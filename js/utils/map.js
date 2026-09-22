@@ -15,9 +15,19 @@ export function initMap(elementId) {
     attributionControl: true
   }).setView([48.137, 11.575], 15);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  // CARTO Voyager: the calm, uncluttered basemap this project wants — the OSM
+  // standard style is far too dense for a child to read.
+  //
+  // It was replaced earlier on the belief that it now needs an API key. It does
+  // not: measured 2026-09-22, 12/12 tiles served with `ACAO: *` and no key,
+  // returning genuinely different images per coordinate (an error tile would be
+  // byte-identical everywhere — which is exactly what Stadia returns without a
+  // key, at HTTP 401 but still as a PNG). The earlier failure was most likely
+  // transient rate limiting mistaken for a wall.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
 
   map._playgroundLayer = L.layerGroup().addTo(map);
