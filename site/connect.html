@@ -35,7 +35,7 @@
     <p class="connect-subtitle">Beam your badges from phone to computer for printing</p>
 
     <div class="qr-wrapper">
-      <peer-qrcode id="qr" size="220"></peer-qrcode>
+      <div id="qr"></div>
       <div class="session-id" id="session-label"></div>
       <p class="qr-instructions">
         Open <strong>Vrooom</strong> on your phone &rarr; tap <strong>Connect</strong> &rarr; scan this code
@@ -49,6 +49,7 @@
   <div id="badge-state" class="connect-container" style="display: none;">
     <div class="badge-sheet-header">
       <h1 id="sheet-title">Badge Sheet</h1>
+      <p class="badge-sheet-car" id="sheet-car"></p>
     </div>
     <p class="badge-sheet-subtitle">Cut along the dotted lines, color in, and glue into your travel passport!</p>
 
@@ -61,102 +62,109 @@
     </p>
   </div>
 
-  <script type="module">
-    import { PeerBridge } from './lib/peer-drop/peer-bridge.js';
-    import './lib/peer-drop/peer-qrcode.js';
-    import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../js/services/badge-svg.js';
+  <!-- Vendored QR generator (Kazuhiko Arase, MIT) — no CDN, so the connect
+       page works even when a CDN is blocked or down. -->
+  <script src="vendor/qrcode.js"></script>
 
-    const bridge = new PeerBridge();
+  <script type="module">
+    import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../js/services/badge-svg.js';
+    import { milestoneByThreshold } from '../js/services/milestones.js';
+    import { SYNC_PATH, POLL_INTERVAL_MS, SESSION_TTL_MS } from '../js/config.js';
+
     const connectEl = document.getElementById('connect-state');
     const badgeEl = document.getElementById('badge-state');
     const statusText = document.getElementById('status-text');
-    const qrEl = document.getElementById('qr');
     const sessionLabel = document.getElementById('session-label');
 
-    // Start hosting
-    const { sessionId } = bridge.host();
+    // Unambiguous alphabet — no I/O/0/1 to misread off a screen.
+    const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-    bridge.addEventListener('ready', () => {
-      const connectUrl = bridge.sessionUrl(location.href);
-      qrEl.value = connectUrl;
-      sessionLabel.textContent = sessionId;
-    });
+    function newSessionId() {
+      const bytes = crypto.getRandomValues(new Uint8Array(8));
+      return Array.from(bytes, b => ALPHABET[b % ALPHABET.length]).join('');
+    }
 
-    bridge.addEventListener('connected', () => {
-      statusText.textContent = 'Phone connected! Waiting for badge data\u2026';
-      statusText.classList.add('connected');
-    });
+    const sessionId = newSessionId();
 
-    bridge.addEventListener('data', (e) => {
-      renderBadges(e.detail.data);
-    });
+    // The QR holds a real URL, so scanning it with a plain camera app lands on
+    // this page rather than showing a meaningless code.
+    const connectUrl = new URL(location.href);
+    connectUrl.search = `?s=${sessionId}`;
 
-    bridge.addEventListener('disconnected', () => {
-      // Only show disconnect if we haven't received data yet
-      if (badgeEl.style.display === 'none') {
-        statusText.textContent = 'Connection lost. Refresh to try again.';
+    const qr = qrcode(0, 'M');
+    qr.addData(connectUrl.href);
+    qr.make();
+    document.getElementById('qr').innerHTML = qr.createImgTag(6, 8, 'Vrooom connect code');
+    sessionLabel.textContent = sessionId;
+
+    // — Poll the relay until the phone uploads —
+
+    const endpoint = new URL(`${SYNC_PATH}?id=${sessionId}`, location.origin).href;
+    const startedAt = Date.now();
+    let timer = null;
+
+    async function poll() {
+      if (Date.now() - startedAt > SESSION_TTL_MS) {
+        clearInterval(timer);
+        statusText.textContent = 'This code expired. Refresh the page for a new one.';
         statusText.classList.remove('connected');
+        return;
       }
-    });
 
-    bridge.addEventListener('error', (e) => {
-      console.error('PeerBridge error:', e.detail);
-      statusText.textContent = 'Connection error. Refresh to try again.';
-    });
+      try {
+        const res = await fetch(endpoint, { cache: 'no-store' });
+        if (res.status === 204) return;            // nothing uploaded yet
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    // Render badge sheet from received data
+        clearInterval(timer);
+        renderBadges(await res.json());
+      } catch (err) {
+        statusText.textContent = navigator.onLine
+          ? 'Trouble reaching the Vrooom server \u2014 still trying\u2026'
+          : 'This computer appears to be offline.';
+      }
+    }
+
+    timer = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+
+    // — Render the badge sheet —
+
     function renderBadges(data) {
-      const { profile, badges } = data;
+      const { user, car, badges } = data;
 
-      // Update title
-      const title = profile?.name
-        ? `${profile.name}'s Badge Sheet`
+      document.getElementById('sheet-title').textContent = user
+        ? `${user}'s Badge Sheet`
         : 'Badge Sheet';
-      document.getElementById('sheet-title').textContent = title;
+
+      const subtitle = document.getElementById('sheet-car');
+      if (subtitle) subtitle.textContent = car ? `Driving the ${car}` : '';
+
+      const cells = [];
+
+      // Milestones arrive as thresholds; their titles are the same everywhere.
+      for (const threshold of badges.milestones || []) {
+        const m = milestoneByThreshold(threshold);
+        if (m) cells.push(milestoneBadgeSVG(m.title, m.threshold));
+      }
+
+      // Playground and regular badges arrive as counts only — no place names
+      // ever leave the phone, so captions are left blank for now.
+      // See BADGE-NAMING-TODO.md.
+      for (let i = 0; i < (badges.regulars || 0); i++) cells.push(regularBadgeSVG(''));
+      for (let i = 0; i < (badges.playgrounds || 0); i++) cells.push(playgroundBadgeSVG(''));
 
       const grid = document.getElementById('print-grid');
-      let html = '';
 
-      // Earned milestones
-      if (badges.milestones) {
-        for (const m of badges.milestones.filter(m => m.earned)) {
-          html += `<div class="badge-print-cell">${milestoneBadgeSVG(m.title, m.threshold)}</div>`;
-        }
+      if (cells.length === 0) {
+        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px;">No badges earned yet. Go explore some playgrounds!</p>';
+      } else {
+        const remainder = cells.length % 3;
+        const padding = remainder === 0 ? 0 : 3 - remainder;
+        grid.innerHTML = cells.map(svg => `<div class="badge-print-cell">${svg}</div>`).join('')
+          + '<div class="badge-print-cell empty"></div>'.repeat(padding);
       }
 
-      // Regular visitor badges
-      if (badges.regulars) {
-        for (const r of badges.regulars) {
-          html += `<div class="badge-print-cell">${regularBadgeSVG(r.title)}</div>`;
-        }
-      }
-
-      // Playground badges
-      if (badges.playgrounds) {
-        for (const p of badges.playgrounds) {
-          html += `<div class="badge-print-cell">${playgroundBadgeSVG(p.title)}</div>`;
-        }
-      }
-
-      // Fill empty slots to complete the grid row
-      const total = (badges.milestones?.filter(m => m.earned).length || 0)
-        + (badges.regulars?.length || 0)
-        + (badges.playgrounds?.length || 0);
-
-      const remainder = total % 3;
-      if (remainder > 0) {
-        for (let i = 0; i < 3 - remainder; i++) {
-          html += '<div class="badge-print-cell empty"></div>';
-        }
-      }
-
-      if (total === 0) {
-        html = '<p style="grid-column:1/-1;text-align:center;color:var(--muted);padding:40px;">No badges earned yet. Go explore some playgrounds!</p>';
-      }
-
-      grid.innerHTML = html;
-
-      // Switch states
       connectEl.style.display = 'none';
       badgeEl.style.display = 'block';
     }

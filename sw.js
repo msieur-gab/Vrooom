@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v12';
+const CACHE_NAME = 'vrooom-v13';
 
 const PRECACHE = [
   './',
@@ -12,7 +12,9 @@ const PRECACHE = [
   './css/components.css',
   './css/map.css',
   './js/app.js',
+  './js/config.js',
   './js/lib/pwa-lifecycle.js',
+  './js/lib/qr-scanner.js',
   './js/lib/pwa-install-overlay.js',
   './js/lib/pwa-pulse.js',
   './js/components/car-viewer/index.js',
@@ -29,9 +31,12 @@ const PRECACHE = [
   './js/services/playground-cache.js',
   './js/services/checkin.js',
   './js/services/badge.js',
+  './js/services/badge-svg.js',
+  './js/services/milestones.js',
   './js/utils/geo.js',
   './js/utils/distance.js',
   './js/utils/map.js',
+  './js/vendor/jsQR.js',
   './data/conf-vroom.json',
   './data/conf-dodge.json',
   './manifest.json'
@@ -65,6 +70,10 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Never touch the badge-sync relay. It is polled until it changes, and the
+  // cache-first branch below would happily serve the first empty 204 forever.
+  if (url.pathname.startsWith('/api/')) return;
 
   // Network-first for Overpass API
   if (url.hostname.includes('overpass')) {

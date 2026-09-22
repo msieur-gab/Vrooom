@@ -3,17 +3,10 @@
  */
 
 import * as db from './database.js';
+import { MILESTONES } from './milestones.js';
+
 export { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from './badge-svg.js';
-
-// ── Milestone definitions ─────────────────────
-
-export const MILESTONES = [
-  { type: 'milestone_1',  threshold: 1,  title: 'First Adventure',   description: 'Visit your first playground!' },
-  { type: 'milestone_5',  threshold: 5,  title: 'Explorer',          description: 'Visit 5 different playgrounds' },
-  { type: 'milestone_10', threshold: 10, title: 'Adventurer',        description: 'Visit 10 different playgrounds' },
-  { type: 'milestone_25', threshold: 25, title: 'World Traveler',    description: 'Visit 25 different playgrounds' },
-  { type: 'milestone_50', threshold: 50, title: 'Playground Legend',  description: 'Visit 50 different playgrounds' }
-];
+export { MILESTONES };
 
 // ── Regular visitor threshold ─────────────────
 const REGULAR_VISIT_COUNT = 10;
@@ -121,3 +114,29 @@ export async function getBadgeCollection(profileId) {
   };
 }
 
+
+// ── Print payload ─────────────────────────────
+
+/**
+ * Build what the phone hands to the computer for printing.
+ *
+ * Place names are deliberately absent: a named child plus the list of
+ * playgrounds they visit is a location profile, so only counts travel. The
+ * computer knows how many badges to lay out, never where they were earned.
+ *
+ * Badge captions are pending the naming strategy — see BADGE-NAMING-TODO.md.
+ */
+export async function buildPrintPayload(profile, car) {
+  const collection = await getBadgeCollection(profile.id);
+
+  return {
+    v: 1,
+    user: profile.name,
+    car: car?.name || null,
+    badges: {
+      playgrounds: collection.playgrounds.length,
+      regulars: collection.regulars.length,
+      milestones: collection.milestones.filter(m => m.earned).map(m => m.threshold)
+    }
+  };
+}

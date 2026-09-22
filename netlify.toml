@@ -1,0 +1,19 @@
+# Publish root verified against the live site: /js/app.js and /site/connect.html
+# both resolve from the repo root.
+[build]
+  publish = "."
+
+# Without this block Netlify never looks for functions, which is why
+# /.netlify/functions/session returned 404 on the first deploy.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# The function is served at its default path and mapped here. Do NOT also set
+# `export const config = { path }` in the function: a v2 function with a custom
+# path is served ONLY there, which removes the /.netlify/functions/session route
+# this rule points at — and then both URLs 404.
+[[redirects]]
+  from = "/api/session"
+  to = "/.netlify/functions/session"
+  status = 200

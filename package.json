@@ -1,0 +1,9 @@
+{
+  "name": "vrooom",
+  "private": true,
+  "type": "module",
+  "description": "Dependency for the badge-sync relay function only — the PWA itself stays build-free.",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.0"
+  }
+}

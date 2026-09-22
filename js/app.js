@@ -9,7 +9,8 @@ import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
 import { fetchNearby, getCachedNearby } from './services/playground.js';
 import { checkIn } from './services/checkin.js';
-import { getBadgeCollection, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
+import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
+import { SYNC_PATH, SESSION_ID_RE } from './config.js';
 import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute } from './utils/map.js';
 
 // ── Available car configs ─────────────────────
@@ -604,7 +605,7 @@ $('btn-scanner-close').addEventListener('click', closePrintModal);
 $('btn-start-scan').addEventListener('click', startScan);
 $('btn-scanner-back').addEventListener('click', backToIntro);
 
-let scannerModule = null; // lazy-loaded
+let scannerLoaded = false; // lazy-loaded
 
 function openPrintModal() {
   $('scanner-step-intro').hidden = false;
@@ -613,13 +614,13 @@ function openPrintModal() {
 }
 
 function closePrintModal() {
-  const scanner = $('peer-scanner');
+  const scanner = $('qr-scanner');
   if (scanner.stop) scanner.stop();
   $('scanner-modal').classList.remove('visible');
 }
 
 function backToIntro() {
-  const scanner = $('peer-scanner');
+  const scanner = $('qr-scanner');
   if (scanner.stop) scanner.stop();
   $('scanner-step-scan').hidden = true;
   $('scanner-step-intro').hidden = false;
@@ -630,71 +631,77 @@ async function startScan() {
   status.textContent = '';
   status.className = 'scanner-status';
 
-  // Lazy-load peer-drop modules
-  if (!scannerModule) {
+  if (!scannerLoaded) {
     try {
-      await import('../site/lib/peer-drop/peer-scanner.js');
-      scannerModule = await import('../site/lib/peer-drop/peer-bridge.js');
+      await import('./lib/qr-scanner.js');
+      scannerLoaded = true;
     } catch (err) {
-      status.textContent = 'Failed to load connection module';
+      status.textContent = 'Could not open the scanner';
       status.className = 'scanner-status error';
       return;
     }
   }
 
-  // Switch to scanner step
   $('scanner-step-intro').hidden = true;
   $('scanner-step-scan').hidden = false;
 
-  const scanner = $('peer-scanner');
+  const scanner = $('qr-scanner');
   scanner.addEventListener('scan-success', onScanSuccess, { once: true });
   scanner.addEventListener('scan-error', onScanError, { once: true });
   scanner.start();
 }
 
+/**
+ * Turn a scanned connect URL into the relay endpoint.
+ *
+ * The endpoint is resolved against the origin that served the QR code, so the
+ * same app works against the demo host and a self-hosted one with no config.
+ */
+function endpointFrom(scannedData) {
+  const scanned = new URL(scannedData);
+  const id = (scanned.searchParams.get('s') || '').toUpperCase();
+  if (!SESSION_ID_RE.test(id)) throw new Error('no session id');
+  return new URL(`${SYNC_PATH}?id=${id}`, scanned.origin).href;
+}
+
 async function onScanSuccess(e) {
   const status = $('scanner-status');
-  const sessionId = scannerModule.PeerBridge.sessionFrom(e.detail.data);
 
-  if (!sessionId) {
-    status.textContent = 'Invalid QR code — not a Vrooom connect link';
+  let endpoint;
+  try {
+    endpoint = endpointFrom(e.detail.data);
+  } catch {
+    status.textContent = 'Invalid QR code — not a Vrooom connect code';
     status.className = 'scanner-status error';
     return;
   }
 
-  status.textContent = 'Connecting\u2026';
+  status.textContent = 'Sending badges\u2026';
   status.className = 'scanner-status sending';
 
-  const bridge = new scannerModule.PeerBridge();
-  bridge.join(sessionId);
+  try {
+    const payload = await buildPrintPayload(profile, selectedCar);
 
-  bridge.addEventListener('connected', async () => {
-    status.textContent = 'Sending badges\u2026';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      // text/plain keeps this a simple request, so there is no CORS preflight
+      // to fail — one round trip, one thing that can go wrong.
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000)
+    });
 
-    const collection = await getBadgeCollection(profile.id);
-    const payload = {
-      profile: { name: profile.name, avatar: profile.avatar },
-      badges: collection
-    };
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    bridge.send(payload);
-
-    // Brief delay so the host receives before we disconnect
-    setTimeout(() => {
-      bridge.disconnect('done');
-      status.textContent = 'Badges sent! You can print from the computer now.';
-      status.className = 'scanner-status done';
-
-      // Auto-close after a moment
-      setTimeout(() => closePrintModal(), 2500);
-    }, 500);
-  });
-
-  bridge.addEventListener('error', (err) => {
-    console.error('PeerBridge error:', err.detail);
-    status.textContent = 'Connection failed — try again';
+    status.textContent = 'Badges sent! You can print from the computer now.';
+    status.className = 'scanner-status done';
+    setTimeout(() => closePrintModal(), 2500);
+  } catch (err) {
+    status.textContent = navigator.onLine
+      ? 'Could not reach Vrooom \u2014 tap back and try again'
+      : 'You appear to be offline \u2014 reconnect and try again';
     status.className = 'scanner-status error';
-  });
+  }
 }
 
 function onScanError(e) {

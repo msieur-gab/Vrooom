@@ -1,13 +1,38 @@
 /**
- * <peer-scanner> — QR code scanner web component
+ * <qr-scanner> — QR code scanner web component
  *
  * Rear camera + jsQR frame scanning in shadow DOM.
  * Methods: start(), stop()
  * Events: scan-start, scan-success, scan-error
  * CSS parts: ::part(video), ::part(overlay)
+ *
+ * jsQR is vendored (js/vendor/jsQR.js) rather than pulled from a CDN, so the
+ * scanner opens with no network. It decodes in software, which means it works
+ * in every browser — not just the ones with a native BarcodeDetector.
  */
 
-import jsQR from 'https://esm.sh/jsqr@1';
+// Vendored jsQR is a UMD bundle exposing a global. Injected on first use so the
+// 250 KB only loads when someone actually opens the scanner.
+let jsQRLoading = null;
+
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  if (!jsQRLoading) {
+    jsQRLoading = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = new URL('../vendor/jsQR.js', import.meta.url).href;
+      script.onload = () => window.jsQR
+        ? resolve(window.jsQR)
+        : reject(new Error('jsQR loaded but did not register'));
+      script.onerror = () => {
+        jsQRLoading = null;
+        reject(new Error('scanner library failed to load'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return jsQRLoading;
+}
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -26,7 +51,7 @@ template.innerHTML = `
   <div class="overlay" part="overlay"></div>
 `;
 
-class PeerScanner extends HTMLElement {
+class QRScanner extends HTMLElement {
 
   #video = null;
   #canvas = null;
@@ -34,6 +59,7 @@ class PeerScanner extends HTMLElement {
   #stream = null;
   #animationId = null;
   #active = false;
+  #jsQR = null;
 
   constructor() {
     super();
@@ -51,6 +77,8 @@ class PeerScanner extends HTMLElement {
     this.#active = true;
 
     try {
+      this.#jsQR = await loadJsQR();
+
       this.#stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: 640, height: 480 },
         audio: false,
@@ -68,7 +96,9 @@ class PeerScanner extends HTMLElement {
       this.#active = false;
 
       let message;
-      if (!window.isSecureContext) {
+      if (err.message === 'scanner library failed to load') {
+        message = 'Scanner unavailable offline — reconnect and reopen the app';
+      } else if (!window.isSecureContext) {
         message = 'Camera requires HTTPS — serve over HTTPS or use localhost';
       } else if (err.name === 'NotAllowedError') {
         message = 'Camera permission denied';
@@ -127,7 +157,7 @@ class PeerScanner extends HTMLElement {
       d[i] = d[i + 1] = d[i + 2] = gray;
     }
 
-    const code = jsQR(d, videoWidth, videoHeight, {
+    const code = this.#jsQR(d, videoWidth, videoHeight, {
       inversionAttempts: 'attemptBoth',
     });
 
@@ -144,6 +174,6 @@ class PeerScanner extends HTMLElement {
   }
 }
 
-customElements.define('peer-scanner', PeerScanner);
+customElements.define('qr-scanner', QRScanner);
 
-export { PeerScanner };
+export { QRScanner };

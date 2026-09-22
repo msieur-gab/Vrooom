@@ -1,0 +1,4 @@
+# Serve the relay at /api/session so the URL matches the Netlify function and
+# the phone needs no per-host configuration.
+RewriteEngine On
+RewriteRule ^session$ session.php [L,QSA]
