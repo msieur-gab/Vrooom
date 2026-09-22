@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vrooom — Tile Style Comparison</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    --bg: #f5f3ef;
+    --fg: #2a2520;
+    --muted: #9a948b;
+    --accent: #f45436;
+    --surface: rgba(255,255,255,0.92);
+    --surface-border: rgba(0,0,0,0.06);
+    --radius: 14px;
+    --font: 'DM Sans', -apple-system, system-ui, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-border);
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .key-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: #fff8e1;
+    border-bottom: 1px solid #ffe082;
+    font-size: 0.82rem;
+  }
+
+  .key-bar label { font-weight: 600; white-space: nowrap; }
+
+  .key-bar input {
+    flex: 1;
+    max-width: 340px;
+    padding: 5px 10px;
+    border: 1.5px solid #ffe082;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    background: white;
+  }
+
+  .key-bar input:focus { outline: none; border-color: var(--accent); }
+
+  .key-bar a {
+    color: var(--accent);
+    font-size: 0.78rem;
+    text-decoration: none;
+  }
+
+  .key-bar a:hover { text-decoration: underline; }
+
+  .key-bar .apply-btn {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-family: var(--font);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+    background: var(--surface-border);
+  }
+
+  .map-cell {
+    position: relative;
+    background: white;
+  }
+
+  .map-cell .map { width: 100%; height: 100%; }
+
+  .map-label {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(10px);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .map-label .current-tag {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--accent);
+    margin-left: 4px;
+  }
+
+  .map-label .load-time {
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.06);
+  }
+
+  .map-label .load-time.fast { color: #2e7d32; }
+  .map-label .load-time.medium { color: #e65100; }
+  .map-label .load-time.slow { color: #c62828; }
+
+  /* sample markers legend */
+  .legend {
+    position: absolute;
+    bottom: 30px;
+    right: 10px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(8px);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .style-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface-border);
+    flex-wrap: wrap;
+  }
+
+  .style-picker .picker-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+
+  .style-btn {
+    padding: 4px 10px;
+    border: 1.5px solid var(--surface-border);
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .style-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(244,84,54,0.06);
+  }
+
+  .style-btn:hover { border-color: var(--fg); color: var(--fg); }
+
+  .leaflet-control-attribution { font-size: 9px !important; }
+
+  /* place-marker same as places-explorer */
+  .place-marker { display: flex; align-items: center; justify-content: center; }
+  .place-marker svg { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>Vrooom</span> Tile Comparison</h1>
+  <span class="subtitle">Find a kid-friendly tile style — slot 1 is the current OSM Standard</span>
+</header>
+
+<div class="key-bar" id="keyBar">
+  <label>MapTiler API Key:</label>
+  <input type="text" id="apiKeyInput" placeholder="Paste your free MapTiler key here">
+  <button class="apply-btn" id="applyKey">Apply</button>
+  <a href="https://cloud.maptiler.com/account/keys/" target="_blank" rel="noopener">Get free key &rarr;</a>
+</div>
+
+<div class="style-picker" id="stylePicker">
+  <span class="picker-label">Slots 2-4:</span>
+</div>
+
+<div class="grid" id="grid">
+  <div class="map-cell">
+    <div class="map-label">OSM Standard <span class="current-tag">current</span></div>
+    <div class="map" id="map0"></div>
+  </div>
+  <div class="map-cell">
+    <div class="map-label" id="label1">Stadia Bright</div>
+    <div class="map" id="map1"></div>
+  </div>
+  <div class="map-cell">
+    <div class="map-label" id="label2">MT Pastel</div>
+    <div class="map" id="map2"></div>
+  </div>
+  <div class="map-cell">
+    <div class="map-label" id="label3">MT Dataviz</div>
+    <div class="map" id="map3"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const MUNICH = [48.137, 11.575];
+  const ZOOM = 15;
+
+  // Free tile styles — no API key needed (shown in slots 2-4 when no key entered)
+  const FREE_STYLES = {
+    '__osm':           { name: 'OSM Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '&copy; OpenStreetMap contributors', tileSize: 256, zoomOffset: 0 },
+    '__stadia_smooth': { name: 'Stadia Smooth', url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', attr: '&copy; Stadia &middot; OSM', tileSize: 256, zoomOffset: 0 },
+    '__stadia_bright': { name: 'Stadia Bright', url: 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png', attr: '&copy; Stadia &middot; OSM', tileSize: 256, zoomOffset: 0 },
+    '__cyclosm':       { name: 'CyclOSM', url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', attr: '&copy; CyclOSM &middot; OSM', tileSize: 256, zoomOffset: 0 },
+  };
+
+  // MapTiler styles — require free API key
+  const MT_STYLES = {
+    'streets-v2':        'MT Streets',
+    'streets-v2-light':  'MT Streets Light',
+    'streets-v2-pastel': 'MT Pastel',
+    'basic-v2':          'MT Basic',
+    'basic-v2-light':    'MT Basic Light',
+    'bright-v2':         'MT Bright',
+    'dataviz':           'MT Dataviz',
+    'dataviz-light':     'MT Dataviz Light',
+    'outdoor-v2':        'MT Outdoor',
+    'topo-v2':           'MT Topo',
+  };
+
+  // Default: slot 0 = OSM current, slots 1-3 = best kid-friendly candidates
+  const DEFAULT_SLOTS = ['__stadia_bright', 'streets-v2-pastel', 'dataviz'];
+
+  // Sample places to show marker visibility
+  const SAMPLE_PLACES = [
+    { lat: 48.1351, lon: 11.5820, type: 'playground' },
+    { lat: 48.1380, lon: 11.5700, type: 'park' },
+    { lat: 48.1345, lon: 11.5680, type: 'swimming_pool' },
+    { lat: 48.1400, lon: 11.5780, type: 'playground' },
+    { lat: 48.1330, lon: 11.5750, type: 'park' },
+    { lat: 48.1365, lon: 11.5850, type: 'swimming_pool' },
+  ];
+
+  const TYPE_CONFIG = {
+    playground:    { color: '#f45436', symbol: '\u25B2' },
+    park:          { color: '#3a9a5c', symbol: '\u25CF' },
+    swimming_pool: { color: '#2b7abf', symbol: '\u25A0' },
+  };
+
+  let apiKey = '';
+  let maps = [];
+  let mtLayers = [null, null, null]; // slots 1-3
+  let activeStyles = [...DEFAULT_SLOTS];
+  let syncing = false;
+
+  function init() {
+    createMaps();
+    buildStylePicker();
+    addSampleMarkers();
+
+    // Load default slots (free styles work without a key)
+    for (let i = 0; i < 3; i++) setStyle(i, activeStyles[i]);
+
+    document.getElementById('applyKey').addEventListener('click', applyApiKey);
+    document.getElementById('apiKeyInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyApiKey();
+    });
+  }
+
+  function createMaps() {
+    for (let i = 0; i < 4; i++) {
+      const m = L.map(`map${i}`, {
+        zoomControl: i === 0,
+        attributionControl: true,
+      }).setView(MUNICH, ZOOM);
+
+      // Sync movement across all 4 maps
+      m.on('moveend zoomend', () => syncMaps(m));
+      m.on('move', () => syncMaps(m));
+
+      maps.push(m);
+    }
+
+    // Slot 0: always OSM Standard (current app tiles)
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+    measureTileLoad(osmLayer, 'map0');
+    osmLayer.addTo(maps[0]);
+  }
+
+  function syncMaps(source) {
+    if (syncing) return;
+    syncing = true;
+    const center = source.getCenter();
+    const zoom = source.getZoom();
+    maps.forEach(m => {
+      if (m !== source) {
+        m.setView(center, zoom, { animate: false });
+      }
+    });
+    syncing = false;
+  }
+
+  function applyApiKey() {
+    apiKey = document.getElementById('apiKeyInput').value.trim();
+    for (let i = 0; i < 3; i++) setStyle(i, activeStyles[i]);
+  }
+
+  function setStyle(slotIndex, styleId) {
+    const mapIndex = slotIndex + 1;
+
+    if (mtLayers[slotIndex]) {
+      maps[mapIndex].removeLayer(mtLayers[slotIndex]);
+      mtLayers[slotIndex] = null;
+    }
+
+    activeStyles[slotIndex] = styleId;
+
+    let layer, label;
+
+    if (FREE_STYLES[styleId]) {
+      const s = FREE_STYLES[styleId];
+      layer = L.tileLayer(s.url, { maxZoom: 19, attribution: s.attr, tileSize: s.tileSize, zoomOffset: s.zoomOffset });
+      label = s.name;
+    } else if (MT_STYLES[styleId]) {
+      if (!apiKey) {
+        document.getElementById(`label${mapIndex}`).innerHTML = `${MT_STYLES[styleId]} <span style="color:var(--accent);font-size:0.65rem">needs key</span>`;
+        return;
+      }
+      layer = L.tileLayer(
+        `https://api.maptiler.com/maps/${styleId}/{z}/{x}/{y}.png?key=${apiKey}`,
+        { maxZoom: 19, tileSize: 512, zoomOffset: -1, attribution: '&copy; MapTiler &middot; OSM' }
+      );
+      label = MT_STYLES[styleId];
+    } else {
+      return;
+    }
+
+    document.getElementById(`label${mapIndex}`).innerHTML = label;
+    measureTileLoad(layer, `map${mapIndex}`);
+    layer.addTo(maps[mapIndex]);
+    mtLayers[slotIndex] = layer;
+  }
+
+  function buildStylePicker() {
+    const picker = document.getElementById('stylePicker');
+    const ALL_STYLES = { ...FREE_STYLES_LABELS(), ...MT_STYLES };
+
+    for (let slot = 0; slot < 3; slot++) {
+      const slotLabel = document.createElement('span');
+      slotLabel.className = 'picker-label';
+      slotLabel.style.marginLeft = slot > 0 ? '16px' : '0';
+      slotLabel.textContent = `#${slot + 2}:`;
+      picker.appendChild(slotLabel);
+
+      Object.entries(ALL_STYLES).forEach(([id, name]) => {
+        const btn = document.createElement('button');
+        btn.className = 'style-btn';
+        btn.textContent = name;
+        btn.dataset.slot = slot;
+        btn.dataset.style = id;
+        if (activeStyles[slot] === id) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          picker.querySelectorAll(`[data-slot="${slot}"]`).forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          setStyle(slot, id);
+        });
+        picker.appendChild(btn);
+      });
+    }
+  }
+
+  function FREE_STYLES_LABELS() {
+    const out = {};
+    Object.entries(FREE_STYLES).forEach(([id, s]) => { out[id] = s.name; });
+    return out;
+  }
+
+  function addSampleMarkers() {
+    SAMPLE_PLACES.forEach(place => {
+      const cfg = TYPE_CONFIG[place.type];
+
+      const markerHtml = `<svg viewBox="0 0 28 36" width="28" height="36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 1C14 1 1 11 1 19a13 13 0 0 0 26 0C27 11 14 1 14 1z" fill="${cfg.color}" stroke="white" stroke-width="1.5"/>
+        <text x="14" y="22" text-anchor="middle" font-size="11" fill="white" font-weight="bold">${cfg.symbol}</text>
+      </svg>`;
+
+      const icon = L.divIcon({
+        className: 'place-marker',
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        html: markerHtml
+      });
+
+      // Add to all 4 maps
+      maps.forEach(m => {
+        L.marker([place.lat, place.lon], { icon, interactive: false }).addTo(m);
+      });
+    });
+
+    // Add legend to first map only
+    const legendEl = document.createElement('div');
+    legendEl.className = 'legend';
+    legendEl.innerHTML = `
+      <div class="legend-item"><span class="legend-dot" style="background:#f45436"></span> Playground</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#3a9a5c"></span> Park</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#2b7abf"></span> Pool</div>
+    `;
+    document.getElementById('map0').parentElement.appendChild(legendEl);
+  }
+
+  function measureTileLoad(layer, mapId) {
+    const label = document.getElementById(mapId).parentElement.querySelector('.map-label');
+    // Remove old timing badge
+    const old = label.querySelector('.load-time');
+    if (old) old.remove();
+
+    let tileCount = 0;
+    let loadedCount = 0;
+    const start = performance.now();
+
+    layer.on('tileloadstart', () => { tileCount++; });
+    layer.on('tileload', () => {
+      loadedCount++;
+      if (loadedCount === tileCount) {
+        const ms = Math.round(performance.now() - start);
+        const cls = ms < 800 ? 'fast' : ms < 1500 ? 'medium' : 'slow';
+        const badge = document.createElement('span');
+        badge.className = `load-time ${cls}`;
+        badge.textContent = `${ms}ms`;
+        // Remove previous badge if re-measuring
+        const prev = label.querySelector('.load-time');
+        if (prev) prev.remove();
+        label.appendChild(badge);
+      }
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
