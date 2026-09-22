@@ -27,8 +27,15 @@
  * replacement is chosen.
  */
 export const OVERPASS_ENDPOINTS = [
+  // Our own proxy first. Server to server there is no CORS, so it can reach
+  // mirrors the browser cannot — measured from a real browser on 2026-09-22,
+  // kumi, private.coffee and openstreetmap.ru all time out, leaving mail.ru as
+  // the ONLY endpoint a browser can use directly. The proxy exists to end that.
+  '/api/overpass',
+
+  // Direct fallbacks, kept so the app still works if the proxy is unavailable
+  // (a different host, a failed deploy, or running the PWA from a file server).
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
 
