@@ -1,21 +1,9 @@
 /**
- * Badge SVG generators — pure functions, zero dependencies.
+ * Badge SVG generators — pure functions.
  * Used by both the app (badge.js) and the website (connect.html).
  */
 
-/**
- * Make text safe to put inside markup. Place names come from OpenStreetMap,
- * which anyone can edit, and from the relay, which anyone holding a session
- * id can post to — a name like `<img src=x onerror=…>` must stay text.
- */
-export function escapeXML(text) {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeXML } from './escape.js';
 
 // Shortened first, escaped after, so the length counts letters, not entities.
 function caption(text, max) {

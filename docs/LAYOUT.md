@@ -58,7 +58,7 @@ the phone, offline cache and data. Installing one never touches another.
 
 ## `shared/` — kept small on purpose
 
-Holds only what at least two parties use today: `badge-svg.js`,
+Holds only what at least two parties use today: `badge-svg.js`, `escape.js`,
 `milestones.js`, `config.js` (the relay path). The rule it makes visible:
 **touching `shared/` means checking the website and every app.** Nothing
 moves there "in case" — every shared file is an obligation to two sides.

@@ -9,7 +9,8 @@ import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
 import { fetchNearby, getCachedNearby, setPlaceSource } from './services/playground.js';
 import { checkIn, freshGPS } from './services/checkin.js';
-import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, escapeXML, MILESTONES } from './services/badge.js';
+import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
+import { escapeXML } from '../../shared/escape.js';
 import { SYNC_PATH, SESSION_ID_RE } from '../../shared/config.js';
 import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute, placesInView } from './utils/map.js';
 

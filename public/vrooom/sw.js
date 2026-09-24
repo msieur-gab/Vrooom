@@ -33,6 +33,7 @@ const PRECACHE = [
   './js/services/checkin.js',
   './js/services/badge.js',
   '../shared/badge-svg.js',
+  '../shared/escape.js',
   '../shared/milestones.js',
   './js/utils/geo.js',
   './js/utils/distance.js',
