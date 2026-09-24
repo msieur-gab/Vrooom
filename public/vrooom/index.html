@@ -10,6 +10,9 @@
   <title>Vrooom — Playground Discovery</title>
 
   <link rel="manifest" href="./manifest.json">
+  <!-- iPhone ignores the manifest icons; this one has no transparency, since
+       iOS fills transparent corners with black before rounding its own. -->
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">

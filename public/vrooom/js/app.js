@@ -89,6 +89,13 @@ async function init() {
   setupCarGrid();
   setupEventListeners();
 
+  // No Web NFC (iPhone, desktop): a scan button would only answer "not
+  // supported". The tag still opens the app; the car is picked by hand.
+  if (!nfcService.isSupported) {
+    $('btn-scan-nfc').hidden = true;
+    $('btn-garage-scan').hidden = true;
+  }
+
   if (profile && selectedCar) {
     showScreen('garage-screen'); // also loads the garage car
   } else {

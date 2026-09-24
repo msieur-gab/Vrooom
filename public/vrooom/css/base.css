@@ -56,6 +56,8 @@ h3 { font-size: 18px; font-weight: 500; }
   -webkit-tap-highlight-color: transparent;
 }
 
+/* .btn sets display, which would otherwise override the hidden attribute. */
+.btn[hidden] { display: none; }
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: 0.4; pointer-events: none; }
 
