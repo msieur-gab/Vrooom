@@ -9,23 +9,76 @@ import { haversine } from './distance.js';
 
 // ── Map init ──────────────────────────────────
 
+// `?style=bright` switches style while we compare; Positron is the default.
+// Positron is recoloured: its parks and water are grey by design, and a child
+// finds a playground by the green around it.
+const BASEMAPS = {
+  positron: {
+    url: 'https://tiles.openfreemap.org/styles/positron',
+    paint: {
+      park:           ['fill-color', '#d8e8c8'],
+      landcover_wood: ['fill-color', '#c8dcb4'],
+      water:          ['fill-color', '#aecfe2'],
+      waterway:       ['line-color', '#a0c8f0']
+    }
+  },
+  bright: { url: 'https://tiles.openfreemap.org/styles/bright' }
+};
+
+const PLACE_CLASSES = ['playground', 'park', 'swimming_pool', 'swimming', 'water_park'];
+
+function chooseBasemap() {
+  const name = new URLSearchParams(location.search).get('style');
+  return BASEMAPS[name] || BASEMAPS.positron;
+}
+
+/**
+ * Applied as soon as the style is parsed, before anything is drawn:
+ *  - no points of interest are drawn (petrol stations, churches, shops… are
+ *    noise between a child and their markers);
+ *  - the style's own colour tweaks;
+ *  - an invisible layer on the places we read. MapLibre only keeps the tile
+ *    data a style layer uses — Positron draws no POI at all, so without it
+ *    placesInView would find nothing.
+ */
+function tuneStyle(gl, basemap) {
+  for (const layer of gl.getStyle().layers) {
+    if (layer['source-layer'] === 'poi') gl.removeLayer(layer.id);
+  }
+  for (const [id, [prop, value]] of Object.entries(basemap.paint || {})) {
+    if (gl.getLayer(id)) gl.setPaintProperty(id, prop, value);
+  }
+  gl.addLayer({
+    id: 'vrooom-places',
+    type: 'circle',
+    source: 'openmaptiles',
+    'source-layer': 'poi',
+    filter: ['in', ['get', 'class'], ['literal', PLACE_CLASSES]],
+    paint: { 'circle-radius': 1, 'circle-opacity': 0 }
+  });
+}
+
 export function initMap(elementId) {
   const map = L.map(elementId, {
     zoomControl: true,
     attributionControl: true
   }).setView([48.137, 11.575], 15);
 
-  // OSM standard — dense, and harder for a child to read than we want, but it
-  // is clean and keyless. See TILES-TODO.md for the options to replace it.
+  // OpenFreeMap vector tiles, drawn on the phone by MapLibre inside Leaflet —
+  // markers, routes and everything else in this file stay plain Leaflet.
+  // Positron has no POI or house-number layer: a neutral background for our
+  // own markers. Free, keyless, commercial use allowed. The same tiles carry
+  // the places (see placesInView), so no separate Overpass query is needed.
   //
-  // NOT CARTO: basemaps.cartocdn.com still serves tiles without a key, and they
-  // are genuinely different per coordinate — but every tile is stamped
-  // "API KEY REQUIRED" across it. Comparing sizes and hashes proved the data was
-  // real and said nothing about what the picture showed. Look at the image.
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  // Raster OSM was too noisy for a child and cannot lose what is baked into
+  // it; CARTO, Stadia and MapTiler forbid commercial use on their free plans.
+  const basemap = chooseBasemap();
+  map._basemap = L.maplibreGL({
+    style: basemap.url,
+    attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+  const gl = map._basemap.getMaplibreMap();
+  gl.once('style.load', () => tuneStyle(gl, basemap));
 
   map._playgroundLayer = L.layerGroup().addTo(map);
   map._meMarker = null;
@@ -94,6 +147,64 @@ export function displayPlaygrounds(map, points, userLat, userLon, onSelect) {
   });
 
   return points.length;
+}
+
+// ── Places from the basemap tiles ─────────────
+
+// OpenMapTiles `poi` classes → the OSM leisure value the rest of the app uses.
+// `swimming` is a sports centre with sport=swimming — the public baths.
+const POI_LEISURE = {
+  playground: 'playground',
+  park: 'park',
+  swimming_pool: 'swimming_pool',
+  swimming: 'swimming_pool',
+  water_park: 'water_park'
+};
+
+/**
+ * Playgrounds, parks and pools in the tiles MapLibre has loaded — the view
+ * plus its margin. Waits for loading to settle first.
+ *
+ * The feature id is the OSM id ×10 plus a type digit (1 node, 2 way,
+ * 3 relation); dividing by 10 gives back the OSM id Overpass used.
+ * No `access` tag exists in these tiles, so private playgrounds are not
+ * filtered — the known cost of this source.
+ */
+export function placesInView(map) {
+  const gl = map._basemap?.getMaplibreMap();
+  if (!gl) return Promise.resolve([]);
+
+  const read = () => {
+    const seen = new Set();
+    return gl.querySourceFeatures('openmaptiles', { sourceLayer: 'poi' })
+      .filter(f => {
+        const p = f.properties;
+        if (!POI_LEISURE[p.class]) return false;
+        if (p.class === 'park' && p.subclass !== 'park') return false; // bbq spots etc.
+        if (f.geometry.type !== 'Point' || f.id == null || seen.has(f.id)) return false;
+        seen.add(f.id);
+        return true;
+      })
+      .map(f => {
+        const [lon, lat] = f.geometry.coordinates;
+        const name = f.properties.name || null;
+        const tags = { leisure: POI_LEISURE[f.properties.class] };
+        if (name) tags.name = name;
+        return { id: Math.floor(f.id / 10), lat, lon, name, tags };
+      });
+  };
+
+  // A Leaflet move reaches MapLibre on its next frame, so "loaded" right
+  // after setView still describes the OLD view. Let two frames pass, then
+  // wait for the new tiles; the timeout keeps a stuck load from hanging the
+  // caller (it then reads whatever is there).
+  return new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (gl.loaded() && gl.areTilesLoaded()) return resolve(read());
+      const timer = setTimeout(() => resolve(read()), 15000);
+      gl.once('idle', () => { clearTimeout(timer); resolve(read()); });
+    }));
+  });
 }
 
 // ── Routing (Valhalla) ────────────────────────

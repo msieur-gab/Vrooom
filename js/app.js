@@ -7,11 +7,11 @@ import * as db from './services/database.js';
 import { nfcService } from './services/nfc.js';
 import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
-import { fetchNearby, getCachedNearby } from './services/playground.js';
+import { fetchNearby, getCachedNearby, setPlaceSource } from './services/playground.js';
 import { checkIn } from './services/checkin.js';
 import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
 import { SYNC_PATH, SESSION_ID_RE } from './config.js';
-import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute } from './utils/map.js';
+import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute, placesInView } from './utils/map.js';
 
 // ── Available car configs ─────────────────────
 
@@ -378,6 +378,7 @@ async function initMapScreen() {
   if (map) return;
 
   map = initMap('map');
+  setPlaceSource(() => placesInView(map));
 
   // Try to locate user
   await relocate();
