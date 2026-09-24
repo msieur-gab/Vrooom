@@ -15,10 +15,23 @@ import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clea
 
 // ── Available car configs ─────────────────────
 
+// `id` is the contract with the NFC tag in the wood: a tag carries
+// .../vrooom/?car=<id>, for life. Ids are the toys' names. The config file
+// behind an id can move freely; the id must never change.
 const CAR_CONFIGS = [
-  { id: 'vroom', name: 'Classic Vroom', configUrl: './data/conf-vroom.json' },
-  { id: 'dodge',  name: 'Classic Grree', configUrl: './data/conf-dodge.json' }
+  { id: 'vrooom', name: 'Classic Vroom', configUrl: './data/conf-vroom.json' },
+  { id: 'grreee', name: 'Classic Grree', configUrl: './data/conf-dodge.json' }
 ];
+
+// The car a tag URL (or the app's own address) names, or null.
+function carFromUrl(href) {
+  try {
+    const id = new URL(href, location.href).searchParams.get('car');
+    return CAR_CONFIGS.find(car => car.id === id) || null;
+  } catch {
+    return null;
+  }
+}
 
 const AVATARS = ['🧒','👦','👧','🧒🏽','👦🏽','👧🏽','🧒🏿','👦🏿','👧🏿','🦊','🐻','🐰','🐸','🦁','🐼','🐨','🐱','🐶'];
 
@@ -92,6 +105,28 @@ async function init() {
     showScreen('welcome');
     loadWelcomeCar();
   }
+
+  await openCarFromLaunchUrl();
+}
+
+/**
+ * Tapping the car's tag outside the app opens .../vrooom/?car=<id>: show
+ * that car, exactly as an in-app scan would. The parameter is then removed
+ * so a reload does not replay it. A tag for the car already selected just
+ * lands in the app.
+ */
+async function openCarFromLaunchUrl() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('car')) return;
+
+  const car = carFromUrl(location.href);
+  params.delete('car');
+  const rest = params.toString();
+  history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
+
+  if (!car) return showToast('Unrecognized car tag');
+  if (selectedCar?.config === car.configUrl) return;
+  await loadCarFromConfig(car.configUrl);
 }
 
 // ── Screen navigation ─────────────────────────
@@ -241,20 +276,10 @@ async function startNFCScan() {
     const result = await nfcService.startScan();
     modal.classList.remove('visible');
 
-    if (result.carConfig) {
-      // Load car from NFC config URL
-      const configUrl = result.carConfig;
-      await loadCarFromConfig(configUrl);
-    } else if (result.url) {
-      // Try parsing URL for config param
-      try {
-        const url = new URL(result.url);
-        const cfg = url.searchParams.get('config');
-        if (cfg) await loadCarFromConfig(cfg);
-      } catch {
-        showToast('Unrecognized NFC tag');
-      }
-    }
+    // Same contract as a tap outside the app: .../vrooom/?car=<id>
+    const car = result.url && carFromUrl(result.url);
+    if (car) await loadCarFromConfig(car.configUrl);
+    else showToast('Unrecognized NFC tag');
   } catch (err) {
     modal.classList.remove('visible');
     if (!err.message.includes('timeout')) {

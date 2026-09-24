@@ -1,6 +1,7 @@
 /**
  * NFC service — scan NFC tags on wooden cars.
- * Migrated from Ha_ouais/services/nfc.js with Vrooom-specific URL parsing.
+ * Migrated from Ha_ouais/services/nfc.js. Returns the tag's URL; which car
+ * it names is decided by the app (carFromUrl in app.js).
  */
 
 class NFCService {
@@ -54,19 +55,13 @@ class NFCService {
   }
 
   _parseMessage(message) {
-    const data = { records: [], carConfig: null, url: null };
+    const data = { records: [], url: null };
 
     for (const record of message.records) {
       if (record.recordType === 'url') {
         const url = new TextDecoder().decode(record.data);
         data.url = url;
         data.records.push({ type: 'url', data: url });
-
-        try {
-          const urlObj = new URL(url);
-          const config = urlObj.searchParams.get('config');
-          if (config) data.carConfig = config;
-        } catch { /* invalid URL */ }
       } else if (record.recordType === 'text') {
         const text = new TextDecoder().decode(record.data);
         data.records.push({ type: 'text', data: text });
