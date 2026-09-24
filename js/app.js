@@ -53,10 +53,17 @@ function applySliderThumb() {
 // ── Sound helper ─────────────────────────────
 
 function playSound(url) {
-  if (!url) return;
+  if (!url) return null;
   const a = new Audio(url);
   a.volume = 0.5;
   a.play().catch(() => {});
+  return a;
+}
+
+function stopSound(audio) {
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
 }
 
 // ── Init ──────────────────────────────────────
@@ -156,7 +163,7 @@ function setupEventListeners() {
   $('detail-close').addEventListener('click', closeDetail);
   $('btn-checkin').addEventListener('click', doCheckIn);
   $('btn-imhere').addEventListener('click', doCheckIn);
-  $('btn-route').addEventListener('click', doRoute);
+  $('btn-route').addEventListener('click', onRouteButton);
   $('btn-radius').addEventListener('click', toggleRadiusPopover);
   $('radius-slider').addEventListener('input', onRadiusChange);
 
@@ -442,6 +449,8 @@ function displayResults() {
 }
 
 function onPlaygroundSelect(playground) {
+  // A route drawn to the previous place (or still loading) no longer applies.
+  hideRoute();
   selectedPlayground = playground;
   $('radius-popover').classList.remove('visible');
 
@@ -468,14 +477,8 @@ function onPlaygroundSelect(playground) {
 
 function closeDetail() {
   $('detail-panel').classList.remove('visible');
-  $('detail-walk').textContent = '';
-  if (map) clearRoute(map);
+  hideRoute();
   selectedPlayground = null;
-
-  // Reset route button
-  const btn = $('btn-route');
-  btn.textContent = 'Walk there';
-  btn.disabled = false;
 }
 
 async function doCheckIn() {
@@ -524,42 +527,65 @@ function onRadiusChange(e) {
   if (userCoords) searchPlaygrounds();
 }
 
+// One handler for the route button, toggling on state. The button used to
+// carry a permanent doRoute listener plus an onclick added for "Clear route",
+// so clearing fired both: the route was cleared and immediately recomputed.
+let routeShown = false;
+let routeRequest = 0; // bumped to discard a route that arrives after it stopped mattering
+let routeSound = null; // the engine that starts with a route stops with it
+
+function onRouteButton() {
+  if (routeShown) hideRoute();
+  else doRoute();
+}
+
+function hideRoute() {
+  routeRequest++;
+  routeShown = false;
+  stopSound(routeSound);
+  routeSound = null;
+  if (map) clearRoute(map);
+  $('detail-walk').textContent = '';
+  const btn = $('btn-route');
+  btn.textContent = 'Walk there';
+  btn.disabled = false;
+}
+
 async function doRoute() {
   if (!selectedPlayground || !userCoords || !map) return;
+
+  const request = ++routeRequest;
+  const isCurrent = () => request === routeRequest;
 
   const btn = $('btn-route');
   btn.disabled = true;
   btn.textContent = 'Loading…';
-  playSound(carSounds.engine);
+  stopSound(routeSound);
+  routeSound = playSound(carSounds.engine);
 
   try {
     const result = await showRoute(
       map,
       [userCoords.lat, userCoords.lon],
-      [selectedPlayground.lat, selectedPlayground.lon]
+      [selectedPlayground.lat, selectedPlayground.lon],
+      isCurrent
     );
+    if (!isCurrent()) return;
 
     if (result) {
+      routeShown = true;
       $('detail-walk').textContent = `${result.duration} min walk · ${formatDistance(result.distance)}`;
       btn.textContent = 'Clear route';
-      btn.disabled = false;
-      btn.onclick = () => {
-        clearRoute(map);
-        $('detail-walk').textContent = '';
-        btn.textContent = 'Walk there';
-        btn.onclick = null;
-        $('btn-route').addEventListener('click', doRoute);
-      };
     } else {
       showToast('Could not find a walking route');
       btn.textContent = 'Walk there';
-      btn.disabled = false;
     }
   } catch (err) {
+    if (!isCurrent()) return;
     showToast('Route failed — try again');
     btn.textContent = 'Walk there';
-    btn.disabled = false;
   }
+  btn.disabled = false;
 }
 
 // ── Badge screen ──────────────────────────────

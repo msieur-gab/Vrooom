@@ -100,7 +100,11 @@ export function displayPlaygrounds(map, points, userLat, userLon, onSelect) {
 
 const VALHALLA_URL = 'https://valhalla1.openstreetmap.de/route';
 
-export async function showRoute(map, fromLatLon, toLatLon) {
+/**
+ * `isCurrent` is checked once the route arrives: if the caller has moved on
+ * (another place selected, route cleared), nothing is drawn.
+ */
+export async function showRoute(map, fromLatLon, toLatLon, isCurrent = () => true) {
   clearRoute(map);
 
   const params = {
@@ -116,6 +120,7 @@ export async function showRoute(map, fromLatLon, toLatLon) {
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   const data = await res.json();
 
+  if (!isCurrent()) return null;
   if (!data.trip?.legs?.length) return null;
 
   const leg = data.trip.legs[0];
