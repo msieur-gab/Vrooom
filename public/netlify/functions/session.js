@@ -56,6 +56,19 @@ export default async (request) => {
     } catch {
       return new Response('{"error":"not json"}', { status: 400, headers: JSON_HEADERS });
     }
+
+    // One upload per session: whoever photographs the QR cannot swap the
+    // badge sheet after the phone has sent it. The same payload again is the
+    // phone retrying after a lost reply, and is answered as a success.
+    const existing = await store.getWithMetadata(id, { type: 'text', consistency: 'strong' });
+    const existingAt = Number(existing?.metadata?.at);
+    const live = existing && !(Number.isFinite(existingAt) && Date.now() - existingAt > TTL_MS);
+    if (live) {
+      return existing.data === body
+        ? new Response('{"ok":true}', { status: 200, headers: JSON_HEADERS })
+        : new Response('{"error":"session already used"}', { status: 409, headers: JSON_HEADERS });
+    }
+
     await store.set(id, body, { metadata: { at: Date.now() } });
     return new Response('{"ok":true}', { status: 200, headers: JSON_HEADERS });
   }

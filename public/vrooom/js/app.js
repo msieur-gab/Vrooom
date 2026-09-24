@@ -770,6 +770,12 @@ async function onScanSuccess(e) {
       signal: AbortSignal.timeout(10000)
     });
 
+    // The relay takes one upload per session; trying again cannot help.
+    if (res.status === 409) {
+      status.textContent = 'This code was already used — refresh the page on the computer and scan the new code.';
+      status.className = 'scanner-status error';
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     status.textContent = 'Badges sent! You can print from the computer now.';

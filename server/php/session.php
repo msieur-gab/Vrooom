@@ -66,6 +66,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // One upload per session: whoever photographs the QR cannot swap the
+    // badge sheet after the phone has sent it. The same payload again is the
+    // phone retrying after a lost reply, and is answered as a success.
+    // (Expired files were already swept above, so a file here is live.)
+    if (is_file($file)) {
+        if (file_get_contents($file) === $body) {
+            echo '{"ok":true}';
+        } else {
+            http_response_code(409);
+            echo '{"error":"session already used"}';
+        }
+        exit;
+    }
+
     // Write to a temp file and rename, so a poll that lands mid-write never
     // reads half a payload — rename is atomic on the same filesystem.
     $tmp = $file . '.' . getmypid() . '.tmp';
