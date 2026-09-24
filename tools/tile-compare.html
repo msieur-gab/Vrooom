@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vrooom — Tile Style Comparison</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -51,51 +52,6 @@
     font-size: 0.78rem;
     color: var(--muted);
     font-weight: 400;
-  }
-
-  .key-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 20px;
-    background: #fff8e1;
-    border-bottom: 1px solid #ffe082;
-    font-size: 0.82rem;
-  }
-
-  .key-bar label { font-weight: 600; white-space: nowrap; }
-
-  .key-bar input {
-    flex: 1;
-    max-width: 340px;
-    padding: 5px 10px;
-    border: 1.5px solid #ffe082;
-    border-radius: 8px;
-    font-family: var(--font);
-    font-size: 0.82rem;
-    background: white;
-  }
-
-  .key-bar input:focus { outline: none; border-color: var(--accent); }
-
-  .key-bar a {
-    color: var(--accent);
-    font-size: 0.78rem;
-    text-decoration: none;
-  }
-
-  .key-bar a:hover { text-decoration: underline; }
-
-  .key-bar .apply-btn {
-    padding: 5px 14px;
-    border: none;
-    border-radius: 8px;
-    background: var(--accent);
-    color: white;
-    font-family: var(--font);
-    font-weight: 600;
-    font-size: 0.8rem;
-    cursor: pointer;
   }
 
   .grid {
@@ -285,6 +241,10 @@
 
   .leaflet-control-attribution { font-size: 9px !important; }
 
+  /* "OSM Calm": the free OSM tiles, softened. Removes nothing from the
+     drawing — only quiets the colours. Tune with the sliders, then copy. */
+  .calm-tiles { filter: saturate(45%) brightness(108%) contrast(88%); }
+
   /* place-marker same as places-explorer */
   .place-marker { display: flex; align-items: center; justify-content: center; }
   .place-marker svg { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); }
@@ -294,15 +254,8 @@
 
 <header>
   <h1><span>Vrooom</span> Tile Comparison</h1>
-  <span class="subtitle">Find a kid-friendly tile style — slot 1 is the current OSM Standard</span>
+  <span class="subtitle">Free, keyless styles only — slot 1 is the current OSM Standard. Vector styles (◆) are drawn by the phone, and can have layers removed (Quiet, no POI): judge their speed on the cheapest one.</span>
 </header>
-
-<div class="key-bar" id="keyBar">
-  <label>MapTiler API Key:</label>
-  <input type="text" id="apiKeyInput" placeholder="Paste your free MapTiler key here">
-  <button class="apply-btn" id="applyKey">Apply</button>
-  <a href="https://cloud.maptiler.com/account/keys/" target="_blank" rel="noopener">Get free key &rarr;</a>
-</div>
 
 <div class="filter-bar" id="filterBar">
   <div class="filter-group">
@@ -339,20 +292,22 @@
     <div class="map" id="map0"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label1">Stadia Smooth</div>
+    <div class="map-label" id="label1"></div>
     <div class="map" id="map1"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label2">MT Base v4 ★</div>
+    <div class="map-label" id="label2"></div>
     <div class="map" id="map2"></div>
   </div>
   <div class="map-cell">
-    <div class="map-label" id="label3">MT Pastel</div>
+    <div class="map-label" id="label3"></div>
     <div class="map" id="map3"></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
 <script>
 (function() {
   'use strict';
@@ -360,31 +315,32 @@
   const MUNICH = [48.137, 11.575];
   const ZOOM = 15;
 
-  // Free tile styles — no API key needed (shown in slots 2-4 when no key entered)
-  const FREE_STYLES = {
-    '__osm':           { name: 'OSM Standard', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '&copy; OpenStreetMap contributors', tileSize: 256, zoomOffset: 0 },
-    '__stadia_smooth': { name: 'Stadia Smooth', url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', attr: '&copy; Stadia &middot; OSM', tileSize: 256, zoomOffset: 0 },
-    '__stadia_bright': { name: 'Stadia Bright', url: 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png', attr: '&copy; Stadia &middot; OSM', tileSize: 256, zoomOffset: 0 },
-    '__cyclosm':       { name: 'CyclOSM', url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', attr: '&copy; CyclOSM &middot; OSM', tileSize: 256, zoomOffset: 0 },
+  // Free, keyless styles whose terms allow Vrooom's use. Paid ones (Stadia,
+  // MapTiler, CARTO) were removed: their free plans forbid commercial use.
+  //   raster: an image per tile, drawn by the server — works with plain Leaflet.
+  //   vector: data per tile, drawn by the phone through MapLibre, plugged into
+  //           Leaflet so markers, routes and the rest of map.js stay as they are.
+  const OSM_ATTR = '&copy; OpenStreetMap contributors';
+  const STYLES = {
+    '__osm':      { name: 'OSM Standard', raster: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: OSM_ATTR },
+    '__osm_calm': { name: 'OSM Calm', raster: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: OSM_ATTR, className: 'calm-tiles' },
+    '__hot':      { name: 'OSM HOT', raster: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', attr: OSM_ATTR + ' &middot; HOT, OSM France' },
+    '__cyclosm':  { name: 'CyclOSM', raster: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', attr: OSM_ATTR + ' &middot; CyclOSM' },
+    '__ofm_positron': { name: '◆ OpenFreeMap Positron', vector: 'https://tiles.openfreemap.org/styles/positron', attr: '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' + OSM_ATTR },
+    '__ofm_bright':   { name: '◆ OpenFreeMap Bright', vector: 'https://tiles.openfreemap.org/styles/bright', attr: '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' + OSM_ATTR },
+    '__ofm_liberty':  { name: '◆ OpenFreeMap Liberty', vector: 'https://tiles.openfreemap.org/styles/liberty', attr: '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' + OSM_ATTR },
+    // Cleaned variants: the style's layers reading these data layers are
+    // dropped before drawing — the one thing raster tiles can never do.
+    '__ofm_positron_quiet': { name: '◆ Positron Quiet', vector: 'https://tiles.openfreemap.org/styles/positron', attr: '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' + OSM_ATTR,
+                              strip: ['transportation_name', 'aerodrome_label', 'aeroway', 'boundary'] },
+    '__ofm_liberty_nopoi':  { name: '◆ Liberty, no POI', vector: 'https://tiles.openfreemap.org/styles/liberty', attr: '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' + OSM_ATTR,
+                              strip: ['poi', 'aerodrome_label'] },
+    '__vt_colorful':  { name: '◆ VersaTiles Colorful', vector: 'https://tiles.versatiles.org/assets/styles/colorful/style.json', attr: 'VersaTiles &middot; ' + OSM_ATTR },
+    '__vt_muted':     { name: '◆ VersaTiles Muted', vector: 'https://tiles.versatiles.org/assets/styles/muted/style.json', attr: 'VersaTiles &middot; ' + OSM_ATTR },
   };
 
-  // MapTiler styles — require free API key
-  const MT_STYLES = {
-    'base-v4':           'MT Base v4 ★',
-    'streets-v2':        'MT Streets',
-    'streets-v2-light':  'MT Streets Light',
-    'streets-v2-pastel': 'MT Pastel',
-    'basic-v2':          'MT Basic',
-    'basic-v2-light':    'MT Basic Light',
-    'bright-v2':         'MT Bright',
-    'dataviz':           'MT Dataviz',
-    'dataviz-light':     'MT Dataviz Light',
-    'outdoor-v2':        'MT Outdoor',
-    'topo-v2':           'MT Topo',
-  };
-
-  // Default: slot 0 = OSM current, slots 1-3 = best candidates
-  const DEFAULT_SLOTS = ['__stadia_smooth', 'base-v4', 'streets-v2-pastel'];
+  // Default: slot 0 = OSM current, slots 1-3 = the three candidates
+  const DEFAULT_SLOTS = ['__ofm_positron', '__ofm_positron_quiet', '__ofm_liberty_nopoi'];
 
   // Sample places to show marker visibility
   const SAMPLE_PLACES = [
@@ -402,9 +358,8 @@
     swimming_pool: { color: '#2b7abf', symbol: '\u25A0' },
   };
 
-  let apiKey = '';
   let maps = [];
-  let mtLayers = [null, null, null]; // slots 1-3
+  let slotLayers = [null, null, null]; // slots 1-3
   let activeStyles = [...DEFAULT_SLOTS];
   let syncing = false;
 
@@ -414,13 +369,7 @@
     addSampleMarkers();
     initFilters();
 
-    // Load default slots (free styles work without a key)
     for (let i = 0; i < 3; i++) setStyle(i, activeStyles[i]);
-
-    document.getElementById('applyKey').addEventListener('click', applyApiKey);
-    document.getElementById('apiKeyInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') applyApiKey();
-    });
   }
 
   function createMaps() {
@@ -459,50 +408,44 @@
     syncing = false;
   }
 
-  function applyApiKey() {
-    apiKey = document.getElementById('apiKeyInput').value.trim();
-    for (let i = 0; i < 3; i++) setStyle(i, activeStyles[i]);
+  // A vector style, minus every style layer that draws from a stripped
+  // data layer (e.g. 'poi' = shops, churches, petrol stations…).
+  async function loadStyle(style) {
+    if (!style.strip) return style.vector;
+    const json = await (await fetch(style.vector)).json();
+    json.layers = json.layers.filter(l => !style.strip.includes(l['source-layer']));
+    return json;
   }
 
-  function setStyle(slotIndex, styleId) {
+  async function setStyle(slotIndex, styleId) {
     const mapIndex = slotIndex + 1;
+    const style = STYLES[styleId];
+    if (!style) return;
 
-    if (mtLayers[slotIndex]) {
-      maps[mapIndex].removeLayer(mtLayers[slotIndex]);
-      mtLayers[slotIndex] = null;
+    if (slotLayers[slotIndex]) {
+      maps[mapIndex].removeLayer(slotLayers[slotIndex]);
+      slotLayers[slotIndex] = null;
     }
-
     activeStyles[slotIndex] = styleId;
 
-    let layer, label;
+    const vectorStyle = style.vector ? await loadStyle(style) : null;
+    if (activeStyles[slotIndex] !== styleId) return; // another style picked meanwhile
 
-    if (FREE_STYLES[styleId]) {
-      const s = FREE_STYLES[styleId];
-      layer = L.tileLayer(s.url, { maxZoom: 19, attribution: s.attr, tileSize: s.tileSize, zoomOffset: s.zoomOffset });
-      label = s.name;
-    } else if (MT_STYLES[styleId]) {
-      if (!apiKey) {
-        document.getElementById(`label${mapIndex}`).innerHTML = `${MT_STYLES[styleId]} <span style="color:var(--accent);font-size:0.65rem">needs key</span>`;
-        return;
-      }
-      layer = L.tileLayer(
-        `https://api.maptiler.com/maps/${styleId}/{z}/{x}/{y}.png?key=${apiKey}`,
-        { maxZoom: 19, tileSize: 512, zoomOffset: -1, attribution: '&copy; MapTiler &middot; OSM' }
-      );
-      label = MT_STYLES[styleId];
-    } else {
-      return;
-    }
+    const layer = style.vector
+      ? L.maplibreGL({ style: vectorStyle, attribution: style.attr })
+      : L.tileLayer(style.raster, { maxZoom: 19, attribution: style.attr, className: style.className || '' });
 
-    document.getElementById(`label${mapIndex}`).innerHTML = label;
-    measureTileLoad(layer, `map${mapIndex}`);
+    document.getElementById(`label${mapIndex}`).innerHTML = style.name;
+    if (!style.vector) measureTileLoad(layer, `map${mapIndex}`);
     layer.addTo(maps[mapIndex]);
-    mtLayers[slotIndex] = layer;
+    if (style.vector) measureVectorLoad(layer, `map${mapIndex}`);
+    slotLayers[slotIndex] = layer;
   }
 
   function buildStylePicker() {
     const picker = document.getElementById('stylePicker');
-    const ALL_STYLES = { ...FREE_STYLES_LABELS(), ...MT_STYLES };
+    const ALL_STYLES = {};
+    Object.entries(STYLES).forEach(([id, st]) => { if (id !== '__osm') ALL_STYLES[id] = st.name; });
 
     for (let slot = 0; slot < 3; slot++) {
       const slotLabel = document.createElement('span');
@@ -586,12 +529,6 @@
     document.getElementById('cssOutput').textContent = `filter: ${filterVal}`;
   }
 
-  function FREE_STYLES_LABELS() {
-    const out = {};
-    Object.entries(FREE_STYLES).forEach(([id, s]) => { out[id] = s.name; });
-    return out;
-  }
-
   function addSampleMarkers() {
     SAMPLE_PLACES.forEach(place => {
       const cfg = TYPE_CONFIG[place.type];
@@ -625,6 +562,25 @@
     document.getElementById('map0').parentElement.appendChild(legendEl);
   }
 
+  function showLoadTime(mapId, ms) {
+    const label = document.getElementById(mapId).parentElement.querySelector('.map-label');
+    const cls = ms < 800 ? 'fast' : ms < 1500 ? 'medium' : 'slow';
+    const badge = document.createElement('span');
+    badge.className = `load-time ${cls}`;
+    badge.textContent = `${ms}ms`;
+    const prev = label.querySelector('.load-time');
+    if (prev) prev.remove();
+    label.appendChild(badge);
+  }
+
+  // Vector: time until MapLibre has fetched AND drawn the view — on a phone,
+  // the drawing is the part that matters.
+  function measureVectorLoad(layer, mapId) {
+    const start = performance.now();
+    const ml = layer.getMaplibreMap();
+    if (ml) ml.once('idle', () => showLoadTime(mapId, Math.round(performance.now() - start)));
+  }
+
   function measureTileLoad(layer, mapId) {
     const label = document.getElementById(mapId).parentElement.querySelector('.map-label');
     // Remove old timing badge
@@ -638,17 +594,7 @@
     layer.on('tileloadstart', () => { tileCount++; });
     layer.on('tileload', () => {
       loadedCount++;
-      if (loadedCount === tileCount) {
-        const ms = Math.round(performance.now() - start);
-        const cls = ms < 800 ? 'fast' : ms < 1500 ? 'medium' : 'slow';
-        const badge = document.createElement('span');
-        badge.className = `load-time ${cls}`;
-        badge.textContent = `${ms}ms`;
-        // Remove previous badge if re-measuring
-        const prev = label.querySelector('.load-time');
-        if (prev) prev.remove();
-        label.appendChild(badge);
-      }
+      if (loadedCount === tileCount) showLoadTime(mapId, Math.round(performance.now() - start));
     });
   }
 
