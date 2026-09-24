@@ -10,6 +10,7 @@ import * as db from './database.js';
 import { checkAndAwardBadges } from './badge.js';
 import { getCachedNearby } from './playground-cache.js';
 import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
+import { testPosition } from '../utils/geo.js';
 
 const CHECKIN_RADIUS = 150; // meters — search radius for nearby places
 
@@ -25,6 +26,9 @@ function placeKey(type, lat, lon) {
  * Fresh GPS read — high accuracy, no cache.
  */
 function freshGPS() {
+  const override = testPosition();
+  if (override) return Promise.resolve(override);
+
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
       return reject(new Error('Geolocation not available'));
