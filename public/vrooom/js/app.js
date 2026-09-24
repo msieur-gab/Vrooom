@@ -8,7 +8,7 @@ import { nfcService } from './services/nfc.js';
 import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
 import { fetchNearby, getCachedNearby, setPlaceSource } from './services/playground.js';
-import { checkIn } from './services/checkin.js';
+import { checkIn, freshGPS } from './services/checkin.js';
 import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
 import { SYNC_PATH, SESSION_ID_RE } from '../../shared/config.js';
 import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute, placesInView } from './utils/map.js';
@@ -511,8 +511,17 @@ async function doCheckIn() {
   btns.forEach(b => { b.disabled = true; b.dataset.prevText = b.textContent; b.textContent = 'Locating…'; });
 
   try {
+    // The places are read from the tiles the map has loaded, so the map must
+    // be where the child is — not where it was left when the map first opened.
+    const coords = await freshGPS();
+    userCoords = coords;
+    if (map) {
+      map.setView([coords.lat, coords.lon], 15);
+      placeUser(map, coords.lat, coords.lon, carSideViewUrl, () => playSound(carSounds.horn));
+    }
+
     const carId = selectedCar?.id || null;
-    const result = await checkIn(profile.id, carId);
+    const result = await checkIn(profile.id, carId, coords);
 
     // Close detail panel if open
     closeDetail();
@@ -531,6 +540,9 @@ async function doCheckIn() {
   } finally {
     btns.forEach(b => { b.disabled = false; b.textContent = b.dataset.prevText || "I'm here!"; });
   }
+
+  // The map moved: show the playgrounds around the new position.
+  if (map && userCoords) searchPlaygrounds();
 }
 
 function toggleRadiusPopover() {

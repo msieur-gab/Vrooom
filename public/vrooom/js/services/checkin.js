@@ -76,7 +76,7 @@ async function cachedNearbyPlaces(lat, lon, radius) {
 /**
  * Destination-agnostic check-in.
  *
- * 1. Fresh GPS read
+ * 1. Fresh GPS read (passed in as `coords`)
  * 2. Nearest cached playground/park/pool within 150m (area fetched by grid cell if needed)
  * 3. Nearest match wins
  * 4. Log visit with dedup key
@@ -84,9 +84,9 @@ async function cachedNearbyPlaces(lat, lon, radius) {
  *
  * @returns {{ place, checkIn, newBadges, fromCache }}
  */
-export async function checkIn(profileId, carId) {
-  // 1. Fresh GPS
-  const coords = await freshGPS();
+export async function checkIn(profileId, carId, coords) {
+  // 1. Fresh GPS — read by the caller, which first moves the map there: the
+  //    places come from the tiles the map has loaded (see playground.js).
 
   // 2. Top up the cache for this area (a no-op when it is fresh), then match
   //    locally. A kid standing at a playground they have visited before can
