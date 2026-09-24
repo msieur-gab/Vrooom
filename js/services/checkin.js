@@ -1,15 +1,18 @@
 /**
  * Check-in service — destination-agnostic "I'm here!" check-in.
  *
- * No pre-selected destination. Fresh GPS read → Overpass query at
- * current position → nearest match within CHECKIN_RADIUS → log visit.
+ * No pre-selected destination. Fresh GPS read → nearest cached place within
+ * CHECKIN_RADIUS → log visit.
+ *
+ * The precise position never leaves the phone: the match runs against the
+ * local cache, and when the area is not cached yet it is fetched the same way
+ * the map does it — by rounded grid cell (see playground.js).
  */
 
 import { haversine } from '../utils/distance.js';
 import * as db from './database.js';
 import { checkAndAwardBadges } from './badge.js';
-import { getCachedNearby } from './playground-cache.js';
-import { OVERPASS_ENDPOINTS, SERVER_TIMEOUT_S, CLIENT_TIMEOUT_MS } from './overpass.js';
+import { ensureArea, getCachedPlaces } from './playground.js';
 import { testPosition } from '../utils/geo.js';
 
 const CHECKIN_RADIUS = 150; // meters — search radius for nearby places
@@ -41,85 +44,16 @@ function freshGPS() {
   });
 }
 
-/**
- * Query Overpass for playground, park, and swimming_pool within radius.
- */
-async function queryNearbyPlaces(lat, lon, radius) {
-  const query = `
-    [out:json][timeout:${SERVER_TIMEOUT_S}];
-    (
-      nwr["leisure"~"^(playground|park|swimming_pool)$"](around:${radius},${lat},${lon});
-      nwr["amenity"="swimming_pool"](around:${radius},${lat},${lon});
-    );
-    out center body;
-  `;
-
-  const body = 'data=' + encodeURIComponent(query);
-  let lastErr;
-
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        body,
-        signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS)
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-      return normalizeElements(data.elements, lat, lon);
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-
-  throw new Error(`Could not reach map servers. Try again.`);
-}
+// How much to fetch when the check-in lands in an area the map never loaded.
+const AREA_RADIUS = 1000;
 
 /**
- * Normalize Overpass elements and compute distance from user.
- */
-function normalizeElements(elements, userLat, userLon) {
-  const seen = new Set();
-
-  return elements
-    .map(el => {
-      const lat = el.center?.lat ?? el.lat;
-      const lon = el.center?.lon ?? el.lon;
-      if (!lat || !lon) return null;
-
-      const tags = el.tags || {};
-      const type = tags.leisure || tags.amenity || 'unknown';
-
-      const key = placeKey(type, lat, lon);
-      if (seen.has(key)) return null;
-      seen.add(key);
-
-      const dist = haversine(userLat, userLon, lat, lon);
-
-      return {
-        id: el.id,
-        placeKey: key,
-        type,
-        lat,
-        lon,
-        name: tags.name || null,
-        distance: dist,
-        tags
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.distance - b.distance);
-}
-
-/**
- * Same shape as queryNearbyPlaces, served from the local cache.
- *
- * The cache is filled by the map screen (playground.js), so it only holds
- * playgrounds — parks and pools are not in it. placeKey is rebuilt the same
- * way, so a cached check-in lands on the SAME badge as a live one.
+ * Playgrounds, parks and pools within radius, from the local cache.
+ * placeKey is built from the cached coordinates exactly as before, so a
+ * check-in lands on the SAME badge it always did.
  */
 async function cachedNearbyPlaces(lat, lon, radius) {
-  const cached = await getCachedNearby(lat, lon, radius);
+  const cached = await getCachedPlaces(lat, lon, radius, ['playground', 'park', 'swimming_pool']);
 
   return cached
     .map(pt => {
@@ -143,7 +77,7 @@ async function cachedNearbyPlaces(lat, lon, radius) {
  * Destination-agnostic check-in.
  *
  * 1. Fresh GPS read
- * 2. Overpass query at position for playground/park/pool within 150m
+ * 2. Nearest cached playground/park/pool within 150m (area fetched by grid cell if needed)
  * 3. Nearest match wins
  * 4. Log visit with dedup key
  * 5. Award badges
@@ -154,20 +88,23 @@ export async function checkIn(profileId, carId) {
   // 1. Fresh GPS
   const coords = await freshGPS();
 
-  // 2. Query nearby places, falling back to whatever the map screen cached.
-  //    A kid standing at a playground they have visited before should still be
-  //    able to check in when Overpass is unreachable.
-  let places;
+  // 2. Top up the cache for this area (a no-op when it is fresh), then match
+  //    locally. A kid standing at a playground they have visited before can
+  //    still check in when Overpass is unreachable.
   let fromCache = false;
-
+  let networkErr = null;
   try {
-    places = await queryNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
-  } catch (networkErr) {
-    places = await cachedNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
+    await ensureArea(coords.lat, coords.lon, AREA_RADIUS);
+  } catch (err) {
+    networkErr = err;
     fromCache = true;
+  }
 
-    // Nothing cached here either — the network error is the useful one to show.
-    if (places.length === 0) throw networkErr;
+  const places = await cachedNearbyPlaces(coords.lat, coords.lon, CHECKIN_RADIUS);
+
+  // Nothing cached and no network — say so rather than "nothing nearby".
+  if (places.length === 0 && networkErr) {
+    throw new Error('Could not reach map servers. Try again.');
   }
 
   if (places.length === 0) {

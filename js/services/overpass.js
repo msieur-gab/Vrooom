@@ -52,5 +52,10 @@ export const OVERPASS_ENDPOINTS = [
 
 // The client must wait LONGER than the server is allowed to work, or a slow
 // but successful query gets killed by our own abort.
-export const SERVER_TIMEOUT_S = 10;
-export const CLIENT_TIMEOUT_MS = 12000;
+//
+// Generous on purpose: mail.ru is saturated (2026-09-24: even a 150 m query
+// took 14 s, the ~1 km area query 17–25 s). The wait is paid once per grid
+// cell per week — the map shows the cache meanwhile, and everything after
+// the first load is served locally.
+export const SERVER_TIMEOUT_S = 25;
+export const CLIENT_TIMEOUT_MS = 30000;
