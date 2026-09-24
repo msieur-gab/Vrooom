@@ -420,6 +420,7 @@ async function relocate() {
 
   try {
     userCoords = await locate();
+    rememberPosition(userCoords);
     map.setView([userCoords.lat, userCoords.lon], 15);
     placeUser(map, userCoords.lat, userCoords.lon, carSideViewUrl, () => playSound(carSounds.horn));
 
@@ -430,15 +431,24 @@ async function relocate() {
     barCount.textContent = 'Location unavailable';
     showToast('Could not get your location');
 
-    // Try cached data
+    // Show the cached playgrounds around the last position that worked. The
+    // car is not placed there: where the child is now is not known.
     try {
-      const cached = await getCachedNearby(48.137, 11.575, searchRadius);
+      const last = await db.getSetting('lastPosition');
+      if (!last) return;
+      map.setView([last.lat, last.lon], 15);
+      const cached = await getCachedNearby(last.lat, last.lon, searchRadius);
       if (cached.length > 0) {
         playgrounds = cached;
-        displayResults();
+        displayResults(last);
       }
     } catch { /* ignore */ }
   }
+}
+
+// Kept on the phone only, for when GPS fails next time.
+function rememberPosition({ lat, lon }) {
+  db.setSetting('lastPosition', { lat, lon }).catch(() => {});
 }
 
 async function searchPlaygrounds() {
@@ -466,11 +476,12 @@ async function searchPlaygrounds() {
   }
 }
 
-function displayResults() {
+// Distances are measured from `from`: the child, or the last known position.
+function displayResults(from = userCoords) {
   const barDot = $('bar-dot');
   const barCount = $('bar-count');
 
-  const count = displayPlaygrounds(map, playgrounds, userCoords.lat, userCoords.lon, onPlaygroundSelect);
+  const count = displayPlaygrounds(map, playgrounds, from.lat, from.lon, onPlaygroundSelect);
 
   barDot.className = 'bar-dot active';
   barCount.textContent = `${count} playground${count !== 1 ? 's' : ''} nearby`;
@@ -521,6 +532,7 @@ async function doCheckIn() {
     // be where the child is — not where it was left when the map first opened.
     const coords = await freshGPS();
     userCoords = coords;
+    rememberPosition(coords);
     if (map) {
       map.setView([coords.lat, coords.lon], 15);
       placeUser(map, coords.lat, coords.lon, carSideViewUrl, () => playSound(carSounds.horn));
