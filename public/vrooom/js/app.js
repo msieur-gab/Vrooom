@@ -82,16 +82,7 @@ function stopSound(audio) {
 // ── Init ──────────────────────────────────────
 
 async function init() {
-  profile = await db.getProfile();
-  selectedCar = await db.getSelectedCar();
-
-  // Restore persisted car image and sounds
-  carSideViewUrl = await db.getSetting('carSideViewUrl') || null;
-  const savedProfiles = await db.getSetting('carSideProfiles');
-  if (savedProfiles) Object.assign(carSideProfiles, savedProfiles);
-  applySliderThumb();
-  const savedSounds = await db.getSetting('carSounds');
-  if (savedSounds) Object.assign(carSounds, savedSounds);
+  await restoreState();
 
   setupAvatarGrid();
   setupCarGrid();
@@ -105,6 +96,20 @@ async function init() {
   }
 
   await openCarFromLaunchUrl();
+}
+
+/**
+ * Read the profile, the car, and the car's picture and sounds saved with it.
+ * Run at launch and again after an import replaced everything.
+ */
+async function restoreState() {
+  profile = await db.getProfile();
+  selectedCar = await db.getSelectedCar();
+
+  carSideViewUrl = await db.getSetting('carSideViewUrl') || null;
+  carSideProfiles = { left: null, right: null, ...await db.getSetting('carSideProfiles') };
+  applySliderThumb();
+  carSounds = { horn: null, engine: null, ...await db.getSetting('carSounds') };
 }
 
 /**
@@ -829,13 +834,12 @@ async function importData(e) {
     await db.importAll(data);
     showToast('Data restored!');
 
-    // Reload app state from DB
-    profile = await db.getProfile();
-    selectedCar = await db.getSelectedCar();
+    await restoreState();
     if (profile && selectedCar) {
-      showScreen('garage');
+      showScreen('garage-screen');
     } else {
       showScreen('welcome');
+      loadWelcomeCar();
     }
   } catch (err) {
     showToast('Import failed');
