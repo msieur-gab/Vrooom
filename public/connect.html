@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vrooom — Connect &amp; Print</title>
   <link rel="stylesheet" href="css/site.css">
-  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
 
@@ -67,9 +67,9 @@
   <script src="vendor/qrcode.js"></script>
 
   <script type="module">
-    import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../js/services/badge-svg.js';
-    import { milestoneByThreshold } from '../js/services/milestones.js';
-    import { SYNC_PATH, POLL_INTERVAL_MS, QR_LIFETIME_MS } from '../js/config.js';
+    import { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from './shared/badge-svg.js';
+    import { milestoneByThreshold } from './shared/milestones.js';
+    import { SYNC_PATH, POLL_INTERVAL_MS, QR_LIFETIME_MS } from './shared/config.js';
 
     const connectEl = document.getElementById('connect-state');
     const badgeEl = document.getElementById('badge-state');

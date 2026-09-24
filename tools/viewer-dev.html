@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Dev tool kept outside public/ so it is never deployed; every relative
+       URL (scripts, car configs, the models they point to) resolves in the app. -->
+  <base href="../public/vrooom/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vrooom — Car Viewer Dev Harness</title>
   <link rel="icon" href="./icons/favicon.ico">

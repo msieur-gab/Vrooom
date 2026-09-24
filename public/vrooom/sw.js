@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v31';
+const CACHE_NAME = 'vrooom-v32';
 
 const PRECACHE = [
   './',
@@ -12,7 +12,7 @@ const PRECACHE = [
   './css/components.css',
   './css/map.css',
   './js/app.js',
-  './js/config.js',
+  '../shared/config.js',
   './js/lib/pwa-lifecycle.js',
   './js/lib/qr-scanner.js',
   './js/lib/pwa-install-overlay.js',
@@ -32,8 +32,8 @@ const PRECACHE = [
   './js/services/playground-cache.js',
   './js/services/checkin.js',
   './js/services/badge.js',
-  './js/services/badge-svg.js',
-  './js/services/milestones.js',
+  '../shared/badge-svg.js',
+  '../shared/milestones.js',
   './js/utils/geo.js',
   './js/utils/distance.js',
   './js/utils/map.js',

@@ -1,5 +1,6 @@
-# Publish root verified against the live site: /js/app.js and /site/connect.html
-# both resolve from the repo root.
+# This file sits INSIDE public/, the folder uploaded to Netlify by drag and
+# drop: the website at the root, the app in vrooom/, code both use in shared/.
+# Tools, notes and design files stay outside public/ and are never deployed.
 [build]
   publish = "."
 
