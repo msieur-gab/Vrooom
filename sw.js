@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v30';
+const CACHE_NAME = 'vrooom-v31';
 
 const PRECACHE = [
   './',
@@ -43,6 +43,36 @@ const PRECACHE = [
   './manifest.json'
 ];
 
+async function rangeFromCache(request) {
+  const cache = await caches.open(CACHE_NAME);
+  let full = await cache.match(request.url);
+  if (!full) {
+    try {
+      full = await fetch(request.url); // no Range header: the whole file, 200
+    } catch {
+      return new Response('', { status: 504 });
+    }
+    if (!full.ok) return full;
+    await cache.put(request.url, full.clone());
+  }
+
+  const body = await full.arrayBuffer();
+  const [, from, to] = /bytes=(\d*)-(\d*)/.exec(request.headers.get('range')) || [];
+  const size = body.byteLength;
+  let start = from ? Number(from) : 0;
+  let end = to ? Math.min(Number(to), size - 1) : size - 1;
+  if (!from && to) { start = Math.max(size - Number(to), 0); end = size - 1; } // bytes=-N: the last N
+
+  return new Response(body.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': full.headers.get('Content-Type') || 'application/octet-stream',
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Content-Length': String(end - start + 1)
+    }
+  });
+}
+
 // Install — precache shell (wait for SKIP_WAITING message from overlay)
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -80,6 +110,15 @@ self.addEventListener('fetch', event => {
   // Never touch the badge-sync relay. It is polled until it changes, and the
   // cache-first branch below would happily serve the first empty 204 forever.
   if (url.pathname.startsWith('/api/')) return;
+
+  // Audio asks for byte ranges and gets 206 Partial Content, which the
+  // cache-first branch below refuses to store — so no sound was ever
+  // available offline, even after playing. Cache the whole file once and
+  // answer every range from it.
+  if (url.hostname === location.hostname && event.request.headers.has('range')) {
+    event.respondWith(rangeFromCache(event.request));
+    return;
+  }
 
   // Network-first for Overpass API
   if (url.hostname.includes('overpass')) {
