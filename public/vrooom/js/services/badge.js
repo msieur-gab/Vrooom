@@ -5,7 +5,7 @@
 import * as db from './database.js';
 import { MILESTONES } from '../../../shared/milestones.js';
 
-export { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG } from '../../../shared/badge-svg.js';
+export { playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, escapeXML } from '../../../shared/badge-svg.js';
 export { MILESTONES };
 
 // ── Regular visitor threshold ─────────────────

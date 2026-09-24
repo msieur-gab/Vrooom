@@ -9,7 +9,7 @@ import { locate } from './utils/geo.js';
 import { haversine } from './utils/distance.js';
 import { fetchNearby, getCachedNearby, setPlaceSource } from './services/playground.js';
 import { checkIn, freshGPS } from './services/checkin.js';
-import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, MILESTONES } from './services/badge.js';
+import { getBadgeCollection, buildPrintPayload, playgroundBadgeSVG, regularBadgeSVG, milestoneBadgeSVG, escapeXML, MILESTONES } from './services/badge.js';
 import { SYNC_PATH, SESSION_ID_RE } from '../../shared/config.js';
 import { initMap, placeUser, displayPlaygrounds, formatDistance, showRoute, clearRoute, placesInView } from './utils/map.js';
 
@@ -654,19 +654,19 @@ async function renderBadges() {
   // Milestone badges first
   for (const m of collection.milestones) {
     const svg = milestoneBadgeSVG(m.title, m.threshold);
-    html += `<div class="badge-item ${m.earned ? '' : 'locked'}">${svg}<span class="badge-item-name">${m.title}</span></div>`;
+    html += `<div class="badge-item ${m.earned ? '' : 'locked'}">${svg}<span class="badge-item-name">${escapeXML(m.title)}</span></div>`;
   }
 
   // Regular visitor badges
   for (const r of collection.regulars) {
     const svg = regularBadgeSVG(r.title);
-    html += `<div class="badge-item">${svg}<span class="badge-item-name">${r.title}</span></div>`;
+    html += `<div class="badge-item">${svg}<span class="badge-item-name">${escapeXML(r.title)}</span></div>`;
   }
 
   // Playground badges
   for (const p of collection.playgrounds) {
     const svg = playgroundBadgeSVG(p.title);
-    html += `<div class="badge-item">${svg}<span class="badge-item-name">${p.title}</span></div>`;
+    html += `<div class="badge-item">${svg}<span class="badge-item-name">${escapeXML(p.title)}</span></div>`;
   }
 
   if (html === '') {
