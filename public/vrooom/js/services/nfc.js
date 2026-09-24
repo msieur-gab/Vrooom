@@ -7,51 +7,67 @@
 class NFCService {
   constructor() {
     this.isSupported = 'NDEFReader' in window;
-    this.reader = null;
     this.isScanning = false;
+    this._controller = null;
   }
 
-  async startScan() {
+  /**
+   * Resolves with the first tag read. Rejects on timeout, on a read error,
+   * or with an AbortError when stopScan() cancels it.
+   */
+  startScan() {
     if (!this.isSupported) {
-      throw new Error('NFC is not supported on this device');
+      return Promise.reject(new Error('NFC is not supported on this device'));
     }
     if (this.isScanning) {
-      throw new Error('NFC scan already in progress');
+      return Promise.reject(new Error('NFC scan already in progress'));
     }
 
-    try {
-      this.reader = new NDEFReader();
-      await this.reader.scan();
-      this.isScanning = true;
+    // A Web NFC scan has no stop method: aborting the signal passed to scan()
+    // is the only way to end it. Dropping the reader left the old scan
+    // listening, and it could still deliver a tag after Cancel.
+    const controller = new AbortController();
+    const { signal } = controller;
+    this._controller = controller;
+    this.isScanning = true;
 
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          this.stopScan();
-          reject(new Error('NFC scan timeout — try again'));
-        }, 30000);
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (settle, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (this._controller === controller) {
+          this._controller = null;
+          this.isScanning = false;
+        }
+        controller.abort(); // ends the scan; a no-op if already aborted
+        settle(value);
+      };
 
-        this.reader.addEventListener('reading', ({ message, serialNumber }) => {
-          clearTimeout(timeout);
-          this.stopScan();
-          const result = this._parseMessage(message);
-          resolve({ ...result, serialNumber });
-        });
+      const timeout = setTimeout(
+        () => finish(reject, new Error('NFC scan timeout — try again')), 30000);
 
-        this.reader.addEventListener('readingerror', () => {
-          clearTimeout(timeout);
-          this.stopScan();
-          reject(new Error('NFC reading error — try again'));
-        });
+      signal.addEventListener('abort', () =>
+        finish(reject, new DOMException('NFC scan cancelled', 'AbortError')));
+
+      const reader = new NDEFReader();
+      reader.addEventListener('reading', ({ message, serialNumber }) => {
+        finish(resolve, { ...this._parseMessage(message), serialNumber });
+      }, { signal });
+      reader.addEventListener('readingerror', () => {
+        finish(reject, new Error('NFC reading error — try again'));
+      }, { signal });
+
+      reader.scan({ signal }).catch(error => {
+        finish(reject, new Error('Failed to start NFC scan: ' + error.message));
       });
-    } catch (error) {
-      this.isScanning = false;
-      throw new Error('Failed to start NFC scan: ' + error.message);
-    }
+    });
   }
 
+  /** Cancel the scan in progress, if any. */
   stopScan() {
-    this.isScanning = false;
-    this.reader = null;
+    this._controller?.abort();
   }
 
   _parseMessage(message) {

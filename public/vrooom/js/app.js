@@ -285,7 +285,8 @@ async function startNFCScan() {
     else showToast('Unrecognized NFC tag');
   } catch (err) {
     modal.classList.remove('visible');
-    if (!err.message.includes('timeout')) {
+    // Cancel and timeout close quietly; anything else is worth saying.
+    if (err.name !== 'AbortError' && !err.message.includes('timeout')) {
       showToast(err.message);
     }
   }
