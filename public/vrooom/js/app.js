@@ -98,9 +98,7 @@ async function init() {
   setupEventListeners();
 
   if (profile && selectedCar) {
-    showScreen('garage-screen');
-    $('bottom-nav').hidden = false;
-    updateGarageScreen();
+    showScreen('garage-screen'); // also loads the garage car
   } else {
     showScreen('welcome');
     loadWelcomeCar();
@@ -391,9 +389,7 @@ async function saveProfile() {
     selectedCar = car;
   }
 
-  showScreen('garage-screen');
-  $('bottom-nav').hidden = false;
-  updateGarageScreen();
+  showScreen('garage-screen'); // also loads the garage car
   showToast(`Welcome, ${name}!`);
 }
 

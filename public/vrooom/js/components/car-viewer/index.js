@@ -49,6 +49,7 @@ class CarViewer extends HTMLElement {
     this._vibration = null;
     this._headlights = null;
     this._config = null;
+    this._loadCount = 0; // bumped per loadCar; an overtaken load is dropped
   }
 
   connectedCallback() {
@@ -153,9 +154,18 @@ class CarViewer extends HTMLElement {
     this._disposeCar();
     this._showLoading();
     this._config = config;
+    const load = ++this._loadCount;
 
     try {
       const { carGroup, partMap, wheelsMesh } = await loadCar(config);
+
+      // A newer loadCar started while this one was fetching: its car is the
+      // one to show. Adding this one too would put two cars in the scene.
+      if (load !== this._loadCount) {
+        disposeGroup(carGroup);
+        return;
+      }
+
       this._carGroup = carGroup;
       this._partMap = partMap;
       this._scene.add(carGroup);
@@ -181,6 +191,7 @@ class CarViewer extends HTMLElement {
       if (this._visible) this._startLoop();
       this.dispatchEvent(new CustomEvent('car-loaded', { detail: { config } }));
     } catch (err) {
+      if (load !== this._loadCount) return; // overtaken: its failure no longer matters
       console.error('[car-viewer] Load error:', err);
       this._showError('Failed to load 3D model');
       throw err;
@@ -241,9 +252,7 @@ class CarViewer extends HTMLElement {
     this._headlights = null;
     if (this._carGroup && this._scene) {
       this._scene.remove(this._carGroup);
-      this._carGroup.traverse((c) => {
-        if (c.isMesh) { c.geometry.dispose(); c.material.dispose(); }
-      });
+      disposeGroup(this._carGroup);
     }
     this._carGroup = null;
     this._partMap = null;
@@ -252,6 +261,12 @@ class CarViewer extends HTMLElement {
   _showLoading() { this._loadingEl.textContent = 'Loading car…'; this._loadingEl.hidden = false; this._errorEl.hidden = true; }
   _hideLoading() { this._loadingEl.hidden = true; }
   _showError(msg) { this._errorEl.textContent = msg; this._errorEl.hidden = false; this._loadingEl.hidden = true; }
+}
+
+function disposeGroup(group) {
+  group.traverse((c) => {
+    if (c.isMesh) { c.geometry.dispose(); c.material.dispose(); }
+  });
 }
 
 customElements.define('car-viewer', CarViewer);
