@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v33';
+const CACHE_NAME = 'vrooom-v34';
 
 const PRECACHE = [
   './',
@@ -42,6 +42,13 @@ const PRECACHE = [
   './data/conf-dodge.json',
   './manifest.json'
 ];
+
+// The app's own address, with or without index.html. Other pages in the
+// folder (print.html) are not the app and keep their own URL. The page is
+// served from the './' entry: a host may redirect index.html to the folder,
+// and a browser refuses a redirected response when opening a page.
+const APP_PAGE = new URL('./', self.location).href;
+const APP_PAGES = [new URL(APP_PAGE).pathname, new URL('./index.html', self.location).pathname];
 
 async function rangeFromCache(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -110,6 +117,17 @@ self.addEventListener('fetch', event => {
   // Never touch the badge-sync relay. It is polled until it changes, and the
   // cache-first branch below would happily serve the first empty 204 forever.
   if (url.pathname.startsWith('/api/')) return;
+
+  // Opening the app — from the home screen, or a car's tag with ?car=<id>.
+  // The cache holds the page without a query, so an exact match missed every
+  // tag URL and a tag tapped offline got "Not found". Whatever the query, the
+  // page is the same: serve the saved one.
+  if (event.request.mode === 'navigate' && APP_PAGES.includes(url.pathname)) {
+    event.respondWith(
+      caches.match(APP_PAGE).then(cached => cached || fetch(event.request))
+    );
+    return;
+  }
 
   // Audio asks for byte ranges and gets 206 Partial Content, which the
   // cache-first branch below refuses to store — so no sound was ever
