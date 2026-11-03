@@ -53,6 +53,17 @@
 
   <!-- Vendored QR generator (Kazuhiko Arase, MIT) — no CDN, so the connect
        page works even when a CDN is blocked or down. -->
+  <footer class="site-footer no-print">
+    Made with &hearts; for curious kids and their families<span class="drive-away" aria-hidden="true"><i></i><i></i><i></i><svg class="car-mark"><use href="car.svg#car" width="100%" height="100%"/></svg></span>
+  </footer>
+  <script>
+    // Footer: when it comes into view, the dots appear and the car drives off
+    const away = document.querySelector('.drive-away');
+    new IntersectionObserver(([e], o) => {
+      if (e.isIntersecting) { away.classList.add('is-going'); o.disconnect(); }
+    }, { threshold: 1 }).observe(away);
+  </script>
+
   <script src="vendor/qrcode.js"></script>
 
   <script type="module">

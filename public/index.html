@@ -25,45 +25,65 @@
     <p class="subtitle">The adventure is out there</p>
   </section>
 
-  <!-- How It Works -->
-<!-- How it works: hidden until it is redesigned (Gab, 2026-11-03). Kept as it was.
-  <section class="steps">
-    <div class="steps-inner">
-    <h2>How it works</h2>
-    <div class="card-grid">
-      <button class="card" type="button" aria-pressed="true">
-        <span class="card-icon"><svg viewBox="0 0 96 64" aria-hidden="true">
-            <path d="M43 19 a7 7 0 0 1 10 0 M38 14 a14 14 0 0 1 20 0 M33 9 a21 21 0 0 1 30 0" fill="none" stroke="#f45436" stroke-width="2.5" stroke-linecap="round"/>
-            <use href="car.svg#car" x="8" y="30" width="80" height="26"/>
-          </svg></span>
-        <span class="card-step">1</span>
-        <span class="card-title">Scan your car</span>
-        <span class="card-text">Tap the NFC tag on your wooden car to open the app</span>
-      </button>
-      <button class="card" type="button" aria-pressed="false">
-        <span class="card-icon"><svg viewBox="0 0 96 64" aria-hidden="true">
-            <path d="M48 27 C44 22 40 17 40 12 a8 8 0 0 1 16 0 C56 17 52 22 48 27 Z" fill="#f45436"/>
-            <circle cx="48" cy="12" r="3" fill="white"/>
-            <line x1="4" y1="60" x2="92" y2="60" stroke="#d9d3c9" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>
-            <use href="car.svg#car" x="8" y="31" width="80" height="26"/>
-          </svg></span>
-        <span class="card-step">2</span>
-        <span class="card-title">Explore the map</span>
-        <span class="card-text">Find nearby playgrounds and check in when you arrive</span>
-      </button>
-      <button class="card" type="button" aria-pressed="false">
-        <span class="card-icon"><svg viewBox="0 0 96 64" aria-hidden="true">
-            <circle cx="48" cy="32" r="28" fill="#fff4f1" stroke="#f45436" stroke-width="2.5" stroke-dasharray="5 4"/>
-            <use href="car.svg#car" x="21" y="23" width="54" height="18"/>
-          </svg></span>
-        <span class="card-step">3</span>
-        <span class="card-title">Collect badges</span>
-        <span class="card-text">Earn badges for every playground you discover</span>
-      </button>
+  <!-- How it works: four sticker cards with a peeling corner, in a carousel
+       (from design/prototype, 2026-11-04) -->
+  <section class="how">
+    <div class="rail-head">
+      <h2 class="big-title">How it works</h2>
+      <div class="rail-nav">
+        <button type="button" class="rail-btn" data-dir="-1" aria-label="Previous step">&lsaquo;</button>
+        <button type="button" class="rail-btn" data-dir="1" aria-label="Next step">&rsaquo;</button>
+      </div>
     </div>
-  </div>
+    <ol class="rail-track how-row" tabindex="0" aria-label="How it works, in four steps">
+      <li class="card" style="--tilt:-1.2deg">
+        <div class="card-face">
+          <div class="card-visual visual-car">
+            <svg viewBox="-2 -2 144 46" aria-hidden="true"><use href="car.svg#car"/></svg>
+          </div>
+          <p class="card-step">1</p>
+          <h3>Tap the car</h3>
+          <p>Hold the phone against the car. The map opens. No app store, no account.</p>
+        </div>
+        <span class="peel" aria-hidden="true"></span>
+      </li>
+      <li class="card" style="--tilt:0.8deg">
+        <div class="card-face">
+          <div class="card-visual visual-map">
+            <img src="app-map.webp" alt="The app's map, with playgrounds marked around Schwabing in Munich" loading="lazy">
+          </div>
+          <p class="card-step">2</p>
+          <h3>Pick a playground</h3>
+          <p>Every playground within walking distance. Choose one together, and walk.</p>
+        </div>
+        <span class="peel" aria-hidden="true"></span>
+      </li>
+      <li class="card" style="--tilt:-0.5deg">
+        <div class="card-face">
+          <div class="card-visual visual-checkin">
+            <button type="button" class="app-checkin">I'm here!</button>
+            <p class="checkin-note" aria-live="polite"></p>
+          </div>
+          <p class="card-step">3</p>
+          <h3>Say you're here</h3>
+          <p>One tap when you arrive. Then the phone goes back in the pocket, and the afternoon begins.</p>
+        </div>
+        <span class="peel" aria-hidden="true"></span>
+      </li>
+      <li class="card" style="--tilt:1.4deg">
+        <div class="card-face">
+          <div class="card-visual visual-badge">
+            <button type="button" class="colour-in" aria-label="Colour in the badge"></button>
+          </div>
+          <p class="card-step">4</p>
+          <h3>Print, colour, glue</h3>
+          <p>Back home, print the badges you earned. Colour them, cut them out, glue them in the passport.</p>
+        </div>
+        <span class="peel" aria-hidden="true"></span>
+      </li>
+    </ol>
   </section>
--->
+
 
   <!-- The app, as it looks: a real capture of its map (central Munich) -->
   <section class="section app-peek">
@@ -90,31 +110,31 @@
 
   <!-- Why families love it: a carousel that runs off the edge of the screen -->
   <section class="values">
-    <div class="values-head">
+    <div class="rail-head">
       <h2 class="big-title">Why families love it</h2>
-      <div class="values-nav">
-        <button type="button" class="values-btn" data-dir="-1" aria-label="Previous">&lsaquo;</button>
-        <button type="button" class="values-btn" data-dir="1" aria-label="Next">&rsaquo;</button>
+      <div class="rail-nav">
+        <button type="button" class="rail-btn" data-dir="-1" aria-label="Previous">&lsaquo;</button>
+        <button type="button" class="rail-btn" data-dir="1" aria-label="Next">&rsaquo;</button>
       </div>
     </div>
-    <div class="values-track" tabindex="0" aria-label="Why families love it">
-      <article class="value ink">
+    <div class="rail-track values-track" tabindex="0" aria-label="Why families love it">
+      <article class="value">
         <h3>Private by design</h3>
         <p>No account, no cloud, no password to forget or to leak. Your child's car is their identity, and everything they collect stays on your phone. The places you visit never leave it.</p>
         <p>With no server full of families' data, there is nothing to steal. Your family's life stays private, and your child's playtime is nobody's business model.</p>
       </article>
-      <article class="value orange">
+      <article class="value">
         <span class="sticker sticker-card" data-sticker="regular" data-title="Our park" data-colour="#e5392c"></span>
         <h3>A phone that doesn't call</h3>
         <p>Vrooom never sends a notification, never counts streaks, never asks you to come back. It opens when you tap the car, and goes back in your pocket.</p>
         <p>The adventure is out there, not on the screen.</p>
       </article>
-      <article class="value beech">
+      <article class="value">
         <h3>Rewards you can hold</h3>
         <p>Every new playground earns a badge you print at home. Kids cut it out, colour it, glue it into their travel passport, and keep playing with it all weekend.</p>
-        <p>What gets rewarded is curiosity and going out, not time behind a screen.</p>
+        <p>What gets rewarded is going out, not time on a screen.</p>
       </article>
-      <article class="value green">
+      <article class="value">
         <h3>A toy first</h3>
         <p>A hand-planed beech car you can take everywhere, and a good toy on its own.</p>
         <p>The app adds the map and the badges. The car never needs it.</p>
@@ -122,13 +142,21 @@
     </div>
   </section>
 
-  <!-- Print CTA -->
-  <section class="section">
-    <div class="cta-section">
-      <span class="sticker sticker-corner" data-sticker="milestone" data-n="5" data-title="Explorer" data-colour="#b8d4f0"></span>
-      <h2>Print Your Badges</h2>
-      <p>Connect your phone to print badge sheets on any computer</p>
-      <a href="connect.html" class="btn-primary">Connect Now &rarr;</a>
+  <!-- Print: the real badge sheet, as it comes out of the printer (from design/prototype) -->
+  <section class="section print">
+    <div class="print-text">
+      <h2 class="big-title">Print the badges<span class="sticker sticker-title" data-sticker="milestone" data-n="5" data-title="Explorer" data-colour="#2f8cff"></span></h2>
+      <p class="lead">Open this site on a computer and scan its code with your phone. The badges your child earned come out of the printer, ready to cut and colour.</p>
+      <p class="print-note">No account. The phone sends the sheet once, and it is deleted two minutes later.</p>
+      <a href="connect.html" class="btn">Connect your phone</a>
+    </div>
+    <div class="sheet-wrap">
+      <div class="sheet" role="img" aria-label="A printed badge sheet, three badges coloured in, one already cut out">
+        <p class="sheet-title">Mila's Badge Sheet</p>
+        <p class="sheet-car">Driving the Vroom</p>
+        <p class="sheet-sub">Cut along the dotted lines, color in, and glue into your travel passport!</p>
+        <div class="sheet-grid"></div>
+      </div>
     </div>
   </section>
 
@@ -137,46 +165,7 @@
     Made with &hearts; for curious kids and their families<span class="drive-away" aria-hidden="true"><i></i><i></i><i></i><svg class="car-mark"><use href="car.svg#car" width="100%" height="100%"/></svg></span>
   </footer>
 
-<!-- How it works script, hidden with its section.
-  <script>
-    // How it works: one card in focus, the others blurred. Tap a card to
-    // light it. On a phone the cards are a row you swipe, and the card that
-    // reaches the middle lights up.
-    const grid = document.querySelector('.card-grid');
-    const cards = [...grid.querySelectorAll('.card')];
-    // Only the phone layout scrolls; test the style, since the pictures
-    // poking out of the cards widen scrollWidth on desktop too.
-    const swipes = () => getComputedStyle(grid).overflowX !== 'visible';
-    const light = card => cards.forEach(c => c.setAttribute('aria-pressed', c === card));
 
-    cards.forEach(card => card.addEventListener('click', () => {
-      light(card);
-      if (swipes()) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }));
-
-    const middle = new IntersectionObserver(entries => {
-      if (!swipes()) return;
-      const centred = entries.find(e => e.isIntersecting);
-      if (centred) light(centred.target);
-    }, { root: grid, rootMargin: '0px -45%' });
-    cards.forEach(c => middle.observe(c));
-  </script>
--->
-
-  <script>
-    // Why families love it: the arrows move the carousel by one card
-    const track = document.querySelector('.values-track');
-    const step = () => track.querySelector('.value').offsetWidth + 24;
-    const btns = document.querySelectorAll('.values-btn');
-    const ends = () => {
-      btns[0].disabled = track.scrollLeft < 8;
-      btns[1].disabled = track.scrollLeft > track.scrollWidth - track.clientWidth - 8;
-    };
-    btns.forEach(b => b.addEventListener('click', () =>
-      track.scrollBy({ left: step() * Number(b.dataset.dir), behavior: 'smooth' })));
-    track.addEventListener('scroll', ends, { passive: true });
-    ends();
-  </script>
   <script>
     // Footer: when it comes into view, the dots appear and the car drives off
     const away = document.querySelector('.drive-away');
@@ -186,5 +175,6 @@
   </script>
   <script type="module" src="js/outing.js"></script>
   <script type="module" src="js/stickers.js"></script>
+  <script type="module" src="js/how.js"></script>
 </body>
 </html>
