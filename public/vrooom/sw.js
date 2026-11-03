@@ -2,7 +2,7 @@
  * Vrooom Service Worker — offline-first caching.
  */
 
-const CACHE_NAME = 'vrooom-v37';
+const CACHE_NAME = 'vrooom-v39';
 
 const PRECACHE = [
   './',
@@ -35,6 +35,7 @@ const PRECACHE = [
   '../shared/badge-svg.js',
   '../shared/escape.js',
   '../shared/milestones.js',
+  '../fonts/dm-sans-latin.woff2',
   './js/utils/geo.js',
   './js/utils/distance.js',
   './js/utils/map.js',
@@ -85,7 +86,9 @@ async function rangeFromCache(request) {
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE))
+      // Fetch each file fresh from the server: through the browser's HTTP
+      // cache, a new version could store an old copy of a file it changed.
+      .then(cache => cache.addAll(PRECACHE.map(url => new Request(url, { cache: 'reload' }))))
   );
 });
 

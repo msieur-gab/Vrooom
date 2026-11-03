@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vrooom — Print Badges</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+    /* DM Sans is served by this site, never by Google */
+    @font-face {
+      font-family: 'DM Sans';
+      font-style: normal;
+      font-weight: 300 700;          /* one variable file for every weight */
+      font-display: swap;
+      src: url(../fonts/dm-sans-latin.woff2) format('woff2');
+    }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
