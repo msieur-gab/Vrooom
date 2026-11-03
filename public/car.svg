@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The Vroom car seen from the side, nose to the right, measured from the app's
+    3D model (vrooom/models/Vroom-*.stl, 1 unit = 1 mm): body + roof outline,
+    the two wheels and their hubs. Pages use it with <use href="car.svg#car">
+    and colour it with the CSS custom properties car-body, car-wheel, car-hub
+    and car-line (each written with two leading dashes, as in site.css).
+  -->
+  <symbol id="car" viewBox="-2 -2 144 46">
+    <path d="M140 32.7 L126.7 35 L23.7 35 L0 26.4 L0 21.4 L0.5 20 L2.3 15 L140 15 Z M72 15 L58 0 L43 0 L7 15 Z"
+          vector-effect="non-scaling-stroke" stroke-linejoin="round"
+          style="fill:var(--car-body,#c8996a);stroke:var(--car-line,none);stroke-width:var(--car-lw,2px)"/>
+    <g vector-effect="non-scaling-stroke" style="fill:var(--car-wheel,#2b2b2b);stroke:var(--car-line,none);stroke-width:var(--car-lw,2px)">
+      <circle cx="111.3" cy="32" r="10" vector-effect="non-scaling-stroke"/>
+      <circle cx="28.3" cy="32" r="10" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g style="fill:var(--car-hub,#c8996a)">
+      <circle cx="111.3" cy="32" r="3.5"/>
+      <circle cx="28.3" cy="32" r="3.5"/>
+    </g>
+  </symbol>
+</svg>

@@ -1,13 +1,11 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="96" fill="#f45436"/>
-  <!-- Car silhouette -->
-  <g transform="translate(256,256) scale(2.5)" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-60 10 L-50 -15 L-25 -30 L30 -30 L50 -15 L60 10 L60 25 L-60 25 Z"/>
-    <circle cx="-35" cy="25" r="12" fill="white"/>
-    <circle cx="35" cy="25" r="12" fill="white"/>
-    <circle cx="-35" cy="25" r="5" fill="#f45436"/>
-    <circle cx="35" cy="25" r="5" fill="#f45436"/>
-    <line x1="-45" y1="-5" x2="-30" y2="-5"/>
-    <line x1="30" y1="-5" x2="45" y2="-5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The Vroom car's side profile from car.svg (measured from the 3D model), white on orange -->
+  <rect width="512" height="512" rx="96" fill="#dc5130"/>
+  <g transform="translate(36 180) scale(3.12)">
+    <path d="M140 32.7 L126.7 35 L23.7 35 L0 26.4 L0 21.4 L0.5 20 L2.3 15 L140 15 Z M72 15 L58 0 L43 0 L7 15 Z" fill="white"/>
+    <circle cx="111.3" cy="32" r="10" fill="white"/>
+    <circle cx="28.3" cy="32" r="10" fill="white"/>
+    <circle cx="111.3" cy="32" r="3.5" fill="#dc5130"/>
+    <circle cx="28.3" cy="32" r="3.5" fill="#dc5130"/>
   </g>
 </svg>

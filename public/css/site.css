@@ -1,4 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap');
+/* Fonts are served from this site, never from Google: a visitor's browser
+   contacts no one else (see fonts/README.md). Latin subsets only. */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/anton-latin.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 300 700;          /* one variable file for every weight */
+  font-display: swap;
+  src: url(../fonts/dm-sans-latin.woff2) format('woff2');
+}
 
 /* ── Design tokens (mirrored from Vrooom app) ── */
 
@@ -13,6 +28,9 @@
   --surface-shadow: 0 2px 20px rgba(0,0,0,0.08);
   --radius: 14px;
   --radius-sm: 10px;
+  --nav-h: 75px;
+  --hero-orange: #dc5130;  /* the photo's sky (the WebPs have --bg baked into them) */
+  --font-display: 'Anton', Impact, sans-serif;
   --font: 'DM Sans', -apple-system, system-ui, sans-serif;
 }
 
@@ -44,10 +62,22 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--surface-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--hero-orange);
+}
+
+/* The shadow fades in over the first 40px of scroll. Browsers without
+   scroll-driven animations simply keep a flat nav. */
+@supports (animation-timeline: scroll()) {
+  .site-nav {
+    animation: nav-lift linear both;
+    animation-timeline: scroll();
+    animation-range: 0 40px;
+  }
+}
+
+@keyframes nav-lift {
+  from { box-shadow: 0 0 0 rgba(0,0,0,0); }
+  to   { box-shadow: 0 2px 12px rgba(0,0,0,0.18); }
 }
 
 .site-nav .logo {
@@ -55,12 +85,16 @@ body {
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  color: var(--fg);
+  color: white;
 }
 
-.site-nav .logo svg {
-  width: 36px;
-  height: 36px;
+/* The real car's side profile (car.svg), white on the orange */
+.site-nav .logo .car-mark {
+  width: 60px;
+  height: 19px;
+  --car-body: white;
+  --car-wheel: white;
+  --car-hub: var(--hero-orange);
 }
 
 .site-nav .logo span {
@@ -77,21 +111,21 @@ body {
   font-family: var(--font);
   font-size: 14px;
   font-weight: 600;
-  color: var(--accent);
+  color: white;
   text-decoration: none;
-  background: var(--accent-soft);
+  background: rgba(255,255,255,0.18);
   border-radius: var(--radius-sm);
   transition: background 0.2s;
 }
 
 .site-nav .nav-link:hover {
-  background: rgba(244,84,54,0.18);
+  background: rgba(255,255,255,0.28);
 }
 
 /* ── Sections ── */
 
 .section {
-  max-width: 800px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 64px 24px;
 }
@@ -103,32 +137,31 @@ body {
 /* ── Hero ── */
 
 .hero {
-  text-align: center;
-  padding: 80px 24px 64px;
-  max-width: 800px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  min-height: calc(100svh / var(--zoom, 1) - var(--nav-h));   /* one screen, whatever the zoom */
+  padding: 8vh 24px 0;
+  /* The WebPs already carry the page colour in their brush edge (see
+     design/hero/), so the sky can simply continue above them. */
+  background: var(--hero-orange) url(../hero.webp) center bottom / cover no-repeat;
 }
 
 .hero h1 {
-  font-size: clamp(40px, 8vw, 64px);
-  font-weight: 700;
-  letter-spacing: -1.5px;
-  line-height: 1.1;
-  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: clamp(56px, 21vw, 200px);   /* 21vw keeps "Vrooom!" inside a 320px screen */
+  font-weight: 400;  /* Anton has a single, already heavy weight */
+  line-height: 1;
+  color: white;
 }
 
 .hero .subtitle {
-  font-size: clamp(16px, 3vw, 20px);
-  color: var(--muted);
-  margin-top: 12px;
-  font-weight: 400;
-}
-
-.hero-icon {
-  display: block;
-  width: 180px;
-  height: 180px;
-  margin: 40px auto 0;
+  font-size: clamp(20px, 3.4vw, 30px);
+  color: white;
+  margin-top: 8px;
+  margin-left: clamp(24px, 5vw, 72px);   /* tucked in under the title */
+  font-weight: 500;
 }
 
 /* ── How It Works — cards ── */
@@ -141,63 +174,379 @@ body {
   text-align: center;
 }
 
+/* How it works: a section of its own, headed in the title font */
+.steps {
+  padding: 72px 24px 88px;
+}
+
+.steps-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.steps h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(56px, 9vw, 112px);
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--fg);
+  margin-bottom: 24px;
+}
+
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+  padding-top: 48px;           /* room for the pictures breaking out on top */
 }
 
 .card {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 28px 28px 32px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius);
-  padding: 28px 20px;
-  text-align: center;
   box-shadow: var(--surface-shadow);
+  cursor: pointer;
+  transition: filter 0.35s, opacity 0.35s, transform 0.35s, box-shadow 0.35s;
 }
 
+.card[aria-pressed="false"] {
+  filter: blur(3px);
+  opacity: 0.6;
+  transform: scale(0.95);
+}
+
+.card[aria-pressed="true"] {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.14);
+}
+
+/* The picture sits on the card's edge, half out, slightly turned */
 .card .card-icon {
-  font-size: 36px;
-  margin-bottom: 12px;
+  position: absolute;
+  top: -44px;
+  right: -30px;
+  transform: rotate(-6deg);
 }
 
-.card h3 {
-  font-size: 16px;
-  font-weight: 600;
+.card:nth-child(2) .card-icon { transform: rotate(5deg); }
+.card:nth-child(3) .card-icon { transform: rotate(-3deg); }
+
+.card .card-icon svg {
+  display: block;
+  width: 210px;
+  height: 140px;
+}
+
+.card-step {
+  font-family: var(--font-display);
+  font-size: 96px;
+  line-height: 1;
+  color: var(--accent);
+  margin-bottom: auto;
+}
+
+.card-title {
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
   margin-bottom: 6px;
 }
 
-.card p {
-  font-size: 14px;
+.card-text {
+  font-size: 17px;
   color: var(--muted);
   line-height: 1.5;
 }
 
-/* ── Benefits ── */
-
-.benefits-list {
-  list-style: none;
-  max-width: 480px;
-  margin: 0 auto;
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
 }
 
-.benefits-list li {
-  padding: 12px 0;
+/* ── The app, as it looks ── */
+
+.app-peek {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 48px;
+}
+
+.phone {
+  width: 260px;
+  aspect-ratio: 1 / 2;
+  border: 10px solid var(--fg);
+  border-radius: 40px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+  transform: rotate(-3deg);
+}
+
+.phone img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.app-peek h2 { text-align: left; margin-bottom: 16px; }
+
+.app-peek p {
   font-size: 17px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  line-height: 1.5;
+  color: var(--muted);
+  max-width: 360px;
 }
 
-.benefits-list li::before {
+.app-peek strong { color: var(--accent); }
+
+/* ── Big section titles (title font) ── */
+
+.section h2.big-title, .values h2.big-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(44px, 7vw, 80px);
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-align: left;
+  text-wrap: balance;
+  opacity: 1;
+  margin-bottom: 16px;
+}
+
+/* ── An afternoon with Vrooom: one line, a few points ── */
+
+.afternoon {
+  --screen: #e8492c;
+  /* The afternoon itself: a candy strip, light orange and lighter orange */
+  --candy: repeating-linear-gradient(-45deg, #ffcdb2 0 10px, #ffe7da 10px 20px);
+}
+
+.afternoon-lead {
+  font-size: 17px;
+  color: var(--muted);
+  max-width: 560px;
+  margin-bottom: 24px;
+}
+
+.afternoon-legend { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+
+.afternoon-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.afternoon-key::before {
   content: '';
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  margin-top: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--screen);
+}
+.afternoon-key.physical::before { width: 28px; height: 12px; border-radius: 6px; background: var(--candy); }
+
+.tl {
+  position: relative;
+  list-style: none;
+  height: 150px;
+  margin: 40px 0 0;
+}
+
+.tl-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 86px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--candy);
+  box-shadow: inset 0 0 0 1px rgba(232, 73, 44, 0.12);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.6s ease-out;
+}
+.afternoon.is-drawn .tl-line { transform: none; }
+
+.tl-point, .tl-phase {
+  position: absolute;
+  left: var(--at);
+  top: 94px;
+}
+
+.tl-point::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--screen);
+  box-shadow: 0 0 0 4px var(--bg);
+  transform: translate(-50%, -50%);
+}
+
+.tl-point span {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* The first point sits at the very start: its label starts there too */
+.tl-line + .tl-point span { transform: none; left: -11px; }
+
+/* Second row: higher, with a thin stalk down to the point */
+.tl-point[data-row="1"] span { bottom: 50px; }
+.tl-point[data-row="1"]::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  bottom: 14px;
+  width: 2px;
+  height: 34px;
+  background: var(--screen);
+}
+
+.tl-phase span {
+  position: absolute;
+  top: 18px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-line { transition: none; transform: none; }
+}
+
+/* ── Stickers: the app's badges, stuck on the page (js/stickers.js) ── */
+
+.sticker {
+  display: inline-block;
+  width: var(--size, 120px);
+  aspect-ratio: 1;
+  vertical-align: top;
+  transform: translateY(var(--lift, 0px)) rotate(calc(var(--tilt, -8deg) + var(--spin, 0deg))) scale(var(--hold, 1));
+  cursor: grab;
+  touch-action: none;           /* a finger on a sticker drags it, not the page */
+  user-select: none;
+  /* the edge and gloss are in the SVG; this is the sticker sitting on paper */
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,0.18)) drop-shadow(0 6px 10px rgba(0,0,0,0.14));
+  will-change: transform;
+}
+.sticker svg { display: block; width: 100%; height: 100%; }
+
+/* Picked up: a little bigger, a deeper shadow; dropped stickers live on the page */
+.sticker.is-dragging {
+  --hold: 1.1;
+  cursor: grabbing;
+  filter: drop-shadow(0 4px 2px rgba(0,0,0,0.18)) drop-shadow(0 16px 18px rgba(0,0,0,0.22));
+}
+.sticker.is-loose { position: absolute; margin: 0; z-index: 50; }
+
+.sticker-hero   { --size: clamp(64px, 9vw, 130px); --tilt: 12deg; margin: 0.02em 0 0 -0.32em; position: relative; }   /* stuck over the end of the word */
+.sticker-title  { --size: clamp(72px, 9vw, 120px); --tilt: -10deg; margin-left: 0.3em; vertical-align: middle; }
+/* On the edge of the second card, half on the card, half on the page */
+.sticker-card   { --size: 112px; --tilt: -9deg; position: absolute; top: -44px; left: -40px; z-index: 1; }
+.sticker-corner { --size: 110px; --tilt: -12deg; position: absolute; top: -36px; right: -24px; }
+
+.value { position: relative; }
+.cta-section { position: relative; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sticker { transition: none; }
+}
+
+/* ── Why families love it: a carousel that runs off the screen ── */
+
+.values {
+  --edge: max(24px, calc((100% - 1120px) / 2 + 24px));   /* the page's text edge */
+  padding: 64px 0;
+}
+
+.values-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 var(--edge);
+  margin-bottom: -32px;
+}
+
+.values-head .big-title { margin: 0; }
+
+.values-nav { display: flex; gap: 12px; flex-shrink: 0; }
+
+.values-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--fg);
+  background: none;
+  color: var(--fg);
+  font: 400 30px/1 var(--font);
+  cursor: pointer;
+}
+.values-btn:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
+.values-btn:disabled { opacity: 0.25; cursor: default; }
+.values-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+.values-track {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--edge);
+  padding: 72px var(--edge) 8px;   /* room above for the sticker on the card edge, even mid-turn */
+  scrollbar-width: none;
+}
+.values-track::-webkit-scrollbar { display: none; }
+.values-track:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+
+.value {
+  flex: 0 0 min(440px, 84vw);
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 36px;
+  border-radius: 28px;
+  scroll-snap-align: start;
+}
+
+.value h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: auto;          /* title on top, words at the bottom */
+  padding-bottom: 40px;
+  max-width: 9em;
+}
+
+.value p { font-size: 19px; line-height: 1.5; max-width: 30em; }
+.value p + p { margin-top: 16px; font-weight: 600; }
+
+/* Quiet light grey cards (Gab, 2026-11-03: the colours were too prominent) */
+.value { background: #e9e6e0; color: var(--fg); }
+
+@media (max-width: 600px) {
+  .values { --edge: 20px; padding: 40px 0; }
+  .values-nav { display: none; }
+  .value { min-height: 440px; padding: 32px 28px; }
+  .value h3 { font-size: 38px; }
+  .value p { font-size: 18px; }
 }
 
 /* ── CTA ── */
@@ -251,6 +600,57 @@ body {
   padding: 40px 24px;
   color: var(--muted);
   font-size: 14px;
+}
+
+/* The car driving away from the last sentence: it starts right after the
+   words, drives off, and leaves three small puffs behind it */
+.drive-away {
+  position: relative;
+  display: inline-block;
+  width: 112px;
+  height: 14px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.drive-away i {
+  position: absolute;
+  top: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--muted);   /* the footer text's grey */
+  opacity: 0;
+  transform: scale(0);
+}
+.drive-away i:nth-child(1) { left: 4px; }
+.drive-away i:nth-child(2) { left: 18px; }
+.drive-away i:nth-child(3) { left: 32px; }
+.drive-away .car-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 14px;
+  --car-body: var(--muted);
+  --car-wheel: var(--muted);
+  --car-hub: var(--bg);
+  transition: transform 1.6s cubic-bezier(0.45, 0, 0.25, 1);
+}
+.drive-away.is-going .car-mark { transform: translateX(64px); }
+.drive-away.is-going i { animation: puff 0.6s ease-out forwards; }
+.drive-away.is-going i:nth-child(1) { animation-delay: 0.45s; }
+.drive-away.is-going i:nth-child(2) { animation-delay: 0.8s; }
+.drive-away.is-going i:nth-child(3) { animation-delay: 1.1s; }
+
+@keyframes puff {
+  0%   { opacity: 0; transform: scale(0); }
+  60%  { opacity: 0.9; transform: scale(1.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drive-away .car-mark { transition: none; transform: translateX(64px); }
+  .drive-away i { animation: none; opacity: 1; transform: none; }
 }
 
 /* ── Connect page ── */
@@ -383,14 +783,53 @@ body {
 /* ── Responsive ── */
 
 @media (max-width: 600px) {
+  .steps { padding: 48px 20px 56px; }
+  /* Phone: the cards become a row you swipe; the one in the middle lights */
   .card-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 76%;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin: 0 -20px;
+    padding: 48px 20px 24px;
   }
+  .card { scroll-snap-align: center; }
+  .card .card-icon { right: -12px; }
+  .card .card-icon svg { width: 170px; height: 113px; }
 
-  .hero { padding: 48px 20px 40px; }
+  .tl { height: 640px; margin: 32px 0 0; }
+  .tl-line { top: 0; bottom: 0; left: -4px; right: auto; width: 16px; height: auto;
+             transform: scaleY(0); transform-origin: top; }
+  .afternoon.is-drawn .tl-line { transform: none; }
+  .tl-point, .tl-phase { left: 4px; top: var(--at); }
+  .tl-point span, .tl-point[data-row="1"] span, .tl-line + .tl-point span {
+    bottom: auto; left: 24px; top: 0; transform: translateY(-50%);
+  }
+  .tl-point[data-row="1"]::after { display: none; }
+  .tl-phase span { top: 0; left: 24px; transform: translateY(-50%); }
+
+  .app-peek { grid-template-columns: 1fr; justify-items: center; gap: 32px; }
+  .app-peek h2, .app-peek p { text-align: center; }
+  .phone { width: 220px; }
+
+  /* A portrait screen would crop the car under `cover`: size the picture
+     so the whole car shows, and let the orange sky fill the space above. */
+  .hero {
+    padding-top: 48px;
+    background-image: url(../hero-small.webp);
+    background-size: 240% auto;
+  }
   .section { padding: 40px 20px; }
-  .hero-icon { width: 140px; height: 140px; }
+}
+
+/* ── Large screens: the whole page 25% bigger (Gab, 2026-11-04) ── */
+
+@media (min-width: 1100px) {
+  :root { --zoom: 1.25; }
+  body { zoom: var(--zoom); }
 }
 
 /* ── Print styles ── */
